@@ -25,7 +25,7 @@ func main() {
 	router := mux.NewRouter().StrictSlash(true)
 	router.HandleFunc("/api/bins", BinIndexHandler(redis_client))
 	router.HandleFunc("/api/bins/{binId}", BinHandler(redis_client))
-	router.HandleFunc("/_/{binId}/{rest:.*}", LogHandler(redis_client))
+	router.HandleFunc("/_/{binId}", LogHandler(redis_client))
 	log.Fatal(http.ListenAndServe(":8080", router))
 }
 
@@ -75,7 +75,37 @@ func ParseRequest(r *http.Request) Request {
 		Form:       r.Form,
 		JSON:       json_content,
 	}
+}
 
+func ListBins(redis_client redis.Conn) []string {
+	bins, err := redis.Strings(redis_client.Do("SMEMBERS", "bins"))
+	if err != nil {
+		panic(err)
+	}
+	return bins
+}
+
+func ListRequestsFromBin(redis_client redis.Conn, binId string) []Request {
+	raw_requests, err := redis.Strings(redis_client.Do("LRANGE", "bins:"+binId, 0, 10))
+	if err != nil {
+		panic(err)
+	}
+	var requests = make([]Request, len(raw_requests))
+	for i, item := range raw_requests {
+		if err = json.Unmarshal([]byte(item), &requests[i]); err != nil {
+			panic(err)
+		}
+	}
+	return requests
+}
+
+func StoreRequest(redis_client redis.Conn, binId string, request Request) {
+	serialised, err := json.Marshal(request)
+	if err != nil {
+		panic(err)
+	}
+	redis_client.Do("SADD", "bins", binId)
+	redis_client.Do("LPUSH", "bins:"+binId, string(serialised))
 }
 
 func json_response(w http.ResponseWriter, body interface{}) {
@@ -90,17 +120,7 @@ func BinHandler(redis_client redis.Conn) func(http.ResponseWriter, *http.Request
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		bin := mux.Vars(r)["binId"]
-
-		raw_requests, err := redis.Strings(redis_client.Do("LRANGE", "bins:"+bin, 0, 10))
-		if err != nil {
-			panic(err)
-		}
-		var requests = make([]Request, len(raw_requests))
-		for i, item := range raw_requests {
-			if err = json.Unmarshal([]byte(item), &requests[i]); err != nil {
-				panic(err)
-			}
-		}
+		requests := ListRequestsFromBin(redis_client, bin)
 		json_response(w, requests)
 	}
 }
@@ -108,10 +128,7 @@ func BinHandler(redis_client redis.Conn) func(http.ResponseWriter, *http.Request
 func BinIndexHandler(redis_client redis.Conn) func(http.ResponseWriter, *http.Request) {
 
 	return func(w http.ResponseWriter, r *http.Request) {
-		bins, err := redis.Strings(redis_client.Do("SMEMBERS", "bins"))
-		if err != nil {
-			panic(err)
-		}
+		bins := ListBins(redis_client)
 		json_response(w, bins)
 	}
 }
@@ -121,12 +138,7 @@ func LogHandler(redis_client redis.Conn) func(http.ResponseWriter, *http.Request
 		request := ParseRequest(r)
 		bin := mux.Vars(r)["binId"]
 
-		serialised, err := json.Marshal(request)
-		if err != nil {
-			panic(err)
-		}
-		redis_client.Do("SADD", "bins", bin)
-		redis_client.Do("LPUSH", "bins:"+bin, string(serialised))
+		StoreRequest(redis_client, bin, request)
 		json_response(w, request)
 	}
 }
