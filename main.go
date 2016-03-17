@@ -3,18 +3,29 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
 	"time"
 
+	"github.com/garyburd/redigo/redis"
 	"github.com/gorilla/mux"
 )
 
 func main() {
+	fmt.Println("starting")
+	redis_client, err := redis.Dial("tcp", ":6379")
+	if err != nil {
+		panic(err)
+	}
+	defer redis_client.Close()
+
 	router := mux.NewRouter().StrictSlash(true)
-	router.HandleFunc("/{binId}/{rest:.*}", Index)
+	router.HandleFunc("/api/bins", BinIndexHandler(redis_client))
+	router.HandleFunc("/api/bins/{binId}", BinHandler(redis_client))
+	router.HandleFunc("/_/{binId}/{rest:.*}", LogHandler(redis_client))
 	log.Fatal(http.ListenAndServe(":8080", router))
 }
 
@@ -31,9 +42,7 @@ type Request struct {
 	JSON       interface{} `json:"json"`
 }
 
-type Requests []Request
-
-func Index(w http.ResponseWriter, r *http.Request) {
+func ParseRequest(r *http.Request) Request {
 	// Read the content
 	var bodyBytes []byte
 	if r.Body != nil {
@@ -54,7 +63,7 @@ func Index(w http.ResponseWriter, r *http.Request) {
 		// ignore json parsing errors
 	}
 
-	response := Request{
+	return Request{
 		Url:        r.URL.Path,
 		Method:     r.Method,
 		Host:       r.Host,
@@ -67,9 +76,57 @@ func Index(w http.ResponseWriter, r *http.Request) {
 		JSON:       json_content,
 	}
 
+}
+
+func json_response(w http.ResponseWriter, body interface{}) {
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(response); err != nil {
+	if err := json.NewEncoder(w).Encode(body); err != nil {
 		panic(err)
+	}
+}
+
+func BinHandler(redis_client redis.Conn) func(http.ResponseWriter, *http.Request) {
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		bin := mux.Vars(r)["binId"]
+
+		raw_requests, err := redis.Strings(redis_client.Do("LRANGE", "bins:"+bin, 0, 10))
+		if err != nil {
+			panic(err)
+		}
+		var requests = make([]Request, len(raw_requests))
+		for i, item := range raw_requests {
+			if err = json.Unmarshal([]byte(item), &requests[i]); err != nil {
+				panic(err)
+			}
+		}
+		json_response(w, requests)
+	}
+}
+
+func BinIndexHandler(redis_client redis.Conn) func(http.ResponseWriter, *http.Request) {
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		bins, err := redis.Strings(redis_client.Do("SMEMBERS", "bins"))
+		if err != nil {
+			panic(err)
+		}
+		json_response(w, bins)
+	}
+}
+
+func LogHandler(redis_client redis.Conn) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		request := ParseRequest(r)
+		bin := mux.Vars(r)["binId"]
+
+		serialised, err := json.Marshal(request)
+		if err != nil {
+			panic(err)
+		}
+		redis_client.Do("SADD", "bins", bin)
+		redis_client.Do("LPUSH", "bins:"+bin, string(serialised))
+		json_response(w, request)
 	}
 }
