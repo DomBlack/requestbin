@@ -131,8 +131,10 @@ func StoreRequest(redis_client redis.Conn, binId string, request Request) {
 	if err != nil {
 		panic(err)
 	}
+	binKey := "bins:" + binId
 	redis_client.Do("SADD", "bins", binId)
-	redis_client.Do("LPUSH", "bins:"+binId, string(serialised))
+	redis_client.Do("LPUSH", binKey, string(serialised))
+	redis_client.Do("EXPIRE", binKey, string(3600*24))
 }
 
 func json_response(w http.ResponseWriter, body interface{}) {
