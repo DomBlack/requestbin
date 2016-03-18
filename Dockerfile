@@ -9,3 +9,6 @@ RUN go install github.com/hamstah/requestbin
 ENTRYPOINT /go/bin/requestbin
 RUN ls /go/bin
 EXPOSE 8080
+
+ADD ./templates /app/templates
+ADD ./static /app/static
