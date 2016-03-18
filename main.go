@@ -20,7 +20,7 @@ var Logger = log.New(os.Stdout, " ", log.Ldate|log.Ltime|log.Lshortfile)
 
 func main() {
 	fmt.Println("starting")
-	redis_client, err := redis.Dial("tcp", ":6379")
+	redis_client, err := redis.Dial("tcp", "redis:6379")
 	if err != nil {
 		panic(err)
 	}
@@ -32,13 +32,13 @@ func main() {
 	router.HandleFunc("/{binId}", BinHandler(redis_client))
 	router.HandleFunc("/_/{binId}", LogHandler(redis_client))
 	router.HandleFunc("/", HomeHandler)
-	router.PathPrefix("/").Handler(http.FileServer(http.Dir("./static/")))
+	router.PathPrefix("/").Handler(http.FileServer(http.Dir("/app/static/")))
 	log.Fatal(http.ListenAndServe(":8080", router))
 }
 
 func getTemplate(w http.ResponseWriter, tmpl string) *template.Template {
 	templates := template.New("template")
-	_, err := templates.ParseFiles("templates/base.html", "templates/"+tmpl+".html")
+	_, err := templates.ParseFiles("/app/templates/base.html", "/app/templates/"+tmpl+".html")
 	if err != nil {
 		fmt.Println(err)
 	}
