@@ -1,0 +1,70 @@
+{{ define "body" }}
+<div class="col-sm-9 col-sm-offset-3 col-md-10 col-md-offset-2 main">
+  <div class="row">
+    <h1 class="page-header">
+      Requests for {{ .Title }}
+    </h1>
+  </div>
+
+  {{ range $key, $request := .Requests }}
+  <div class="panel panel-default">
+    <div class="panel-heading">
+      <a href="javascript:$('#details-{{ $key }}').toggleClass('hidden');">
+	<div class="panel-title">
+	  <span class="label label-primary">#{{ $key }}</span>
+	  <time class="pull-right timeago" datetime="{{ $request.ISO8601Time }}"></time>
+	  <a target="_blank" href="{{ $request.FullUrl }}"><code>{{ $request.Method }} {{ $request.FullUrl }}</code></a>
+	</div>
+      </a>
+    </div>
+    <div id="details-{{ $key }}" class="panel-body {{ if $key }}hidden{{ end }}">
+
+      <div class="well codewrap">
+	curl -X {{ $request.Method }} '{{ $request.FullUrl }}' {{ range $name, $value := $request.Headers }}-H '{{ $name }}: {{ index $value 0 }}' {{ end }}{{ if $request.Body }} -d '{{ $request.Body }}'{{ end }}</code>
+      </div>
+
+      {{ if $request.Headers }}
+      <h4>Headers</h4>
+      <table class="table table-condensed table-bordered table-striped">
+	{{ range $name, $value := $request.Headers }}
+	<tr>
+          <td class="col-xs-1"><strong>{{ $name }}</strong></td>
+          <td class="col-xs-3">{{ index $value 0 }}</td>
+	</tr>
+	{{ end }}
+      </table>
+      {{ end }}
+
+      {{ if $request.Body }}
+      <h4>Body {{ if $request.JSON}}<span class="badge">JSON</span>{{ end }}</h4>
+      <pre>{{ $request.Body }}</pre>
+      {{ end }}
+
+      {{ if $request.PostForm }}
+      <h4>POST Form</h4>
+      <table class="table table-condensed table-bordered table-striped">
+	{{ range $name, $value := $request.PostForm }}
+	<tr>
+          <td class="col-xs-1"><strong>{{ $name }}</strong></td>
+          <td class="col-xs-3">{{ index $value 0 }}</td>
+	</tr>
+	{{ end }}
+      </table>
+      {{ end }}
+
+    </div>
+  </div>
+  {{ end }}
+</div>
+{{ end }}
+
+{{ define "scripts" }}
+<script src="/js/jquery.js"></script>
+<script src="/js/bootstrap.min.js"></script>
+<script src="/js/jquery.timeago.js"></script>
+<script>
+  jQuery(document).ready(function() {
+  jQuery("time.timeago").timeago();
+  });
+</script>
+{{ end }}

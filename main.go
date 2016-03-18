@@ -8,11 +8,15 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"os"
+	"text/template"
 	"time"
 
 	"github.com/garyburd/redigo/redis"
 	"github.com/gorilla/mux"
 )
+
+var Logger = log.New(os.Stdout, " ", log.Ldate|log.Ltime|log.Lshortfile)
 
 func main() {
 	fmt.Println("starting")
@@ -23,14 +27,27 @@ func main() {
 	defer redis_client.Close()
 
 	router := mux.NewRouter().StrictSlash(true)
-	router.HandleFunc("/api/bins", BinIndexHandler(redis_client))
-	router.HandleFunc("/api/bins/{binId}", BinHandler(redis_client))
+	router.HandleFunc("/api/bins", ApiBinIndexHandler(redis_client))
+	router.HandleFunc("/api/bins/{binId}", ApiBinHandler(redis_client))
+	router.HandleFunc("/{binId}", BinHandler(redis_client))
 	router.HandleFunc("/_/{binId}", LogHandler(redis_client))
+	router.HandleFunc("/", HomeHandler)
+	router.PathPrefix("/").Handler(http.FileServer(http.Dir("./static/")))
 	log.Fatal(http.ListenAndServe(":8080", router))
+}
+
+func getTemplate(w http.ResponseWriter, tmpl string) *template.Template {
+	templates := template.New("template")
+	_, err := templates.ParseFiles("templates/base.html", "templates/"+tmpl+".html")
+	if err != nil {
+		fmt.Println(err)
+	}
+	return template.Must(templates, err)
 }
 
 type Request struct {
 	Url        string      `json:"url"`
+	FullUrl    string      `json:"full_url"`
 	Method     string      `json:"method"`
 	Time       time.Time   `json:"time"`
 	Headers    http.Header `json:"headers"`
@@ -40,6 +57,10 @@ type Request struct {
 	PostForm   url.Values  `json:"post_form"`
 	Form       url.Values  `json:"form"`
 	JSON       interface{} `json:"json"`
+}
+
+func (request *Request) ISO8601Time() string {
+	return request.Time.Format(time.RFC3339)
 }
 
 func ParseRequest(r *http.Request) Request {
@@ -63,8 +84,14 @@ func ParseRequest(r *http.Request) Request {
 		// ignore json parsing errors
 	}
 
+	fullUrl := r.URL
+	fullUrl.Host = r.Host
+	fullUrl.Scheme = "http" // TODO find a solution
+	fullUrl.RawQuery = r.URL.Query().Encode()
+
 	return Request{
 		Url:        r.URL.Path,
+		FullUrl:    fullUrl.String(),
 		Method:     r.Method,
 		Host:       r.Host,
 		Time:       time.Now(),
@@ -116,7 +143,7 @@ func json_response(w http.ResponseWriter, body interface{}) {
 	}
 }
 
-func BinHandler(redis_client redis.Conn) func(http.ResponseWriter, *http.Request) {
+func ApiBinHandler(redis_client redis.Conn) func(http.ResponseWriter, *http.Request) {
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		bin := mux.Vars(r)["binId"]
@@ -125,11 +152,34 @@ func BinHandler(redis_client redis.Conn) func(http.ResponseWriter, *http.Request
 	}
 }
 
-func BinIndexHandler(redis_client redis.Conn) func(http.ResponseWriter, *http.Request) {
+func ApiBinIndexHandler(redis_client redis.Conn) func(http.ResponseWriter, *http.Request) {
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		bins := ListBins(redis_client)
 		json_response(w, bins)
+	}
+}
+
+func HomeHandler(w http.ResponseWriter, r *http.Request) {
+	params := struct {
+		Title string
+	}{Title: "Welcome to RequestBin"}
+
+	getTemplate(w, "home").ExecuteTemplate(w, "base", params)
+}
+
+func BinHandler(redis_client redis.Conn) func(http.ResponseWriter, *http.Request) {
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		binId := mux.Vars(r)["binId"]
+		requests := ListRequestsFromBin(redis_client, binId)
+
+		params := struct {
+			Requests []Request
+			Title    string
+		}{Requests: requests, Title: "Bin #" + binId}
+
+		getTemplate(w, "bin").ExecuteTemplate(w, "base", params)
 	}
 }
 
