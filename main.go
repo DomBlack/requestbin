@@ -147,9 +147,15 @@ func StoreRequest(redis_client redis.Conn, binId string, request Request) {
 		panic(err)
 	}
 	binKey := "bins:" + binId
-	redis_client.Do("SADD", "bins", binId)
-	redis_client.Do("LPUSH", binKey, string(serialised))
-	redis_client.Do("EXPIRE", binKey, string(3600*24))
+	if _, err := redis_client.Do("SADD", "bins", binId); err != nil {
+		fmt.Println(err)
+	}
+	if _, err := redis_client.Do("LPUSH", binKey, string(serialised)); err != nil {
+		fmt.Println(err)
+	}
+	if _, err := redis_client.Do("EXPIRE", binKey, 3600*24); err != nil {
+		fmt.Println(err)
+	}
 }
 
 func json_response(w http.ResponseWriter, body interface{}) {
