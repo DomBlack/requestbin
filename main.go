@@ -227,6 +227,7 @@ func LogHandler(redis_client redis.Conn) func(http.ResponseWriter, *http.Request
 			"png": true,
 			"bmp": true,
 			"gif": true,
+			"css": true,
 		}
 
 		if staticFiles[extension] {
@@ -234,24 +235,43 @@ func LogHandler(redis_client redis.Conn) func(http.ResponseWriter, *http.Request
 			return
 		}
 
-		if extension == "odt" {
-			filename := filepath.Base(r.URL.Path)
-			w.Header().Set("Content-Type", "application/vnd.oasis.opendocument.text")
-			w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", filename))
+		dynamicFiles := map[string]bool{
+			"odt": true,
+			"svg": true,
+		}
 
-			imagePath := strings.Join(splitPath[:len(splitPath)-1], ".") + ".jpg"
-			imageUrl := r.URL
-			imageUrl.Path = imagePath
-			imageUrl.Host = r.Host
-			imageUrl.Scheme = "http" // TODO find a solution
+		if dynamicFiles[extension] {
 
-			source := os.Getenv("ROOT") + "/documents/odt"
+			basePath := strings.Join(splitPath[:len(splitPath)-1], ".")
+			trackerUrl := *r.URL
+			trackerUrl.Host = r.Host
+			trackerUrl.Scheme = "http" // TODO find a solution
 
-			err := generateODT(w, source, imageUrl.String())
-			if err != nil {
-				fmt.Println(err)
+			if extension == "odt" {
+				trackerUrl.Path = basePath + ".jpg"
+				filename := filepath.Base(r.URL.Path)
+				w.Header().Set("Content-Type", "application/vnd.oasis.opendocument.text")
+				w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", filename))
+
+				source := os.Getenv("ROOT") + "/documents/odt"
+
+				if err := generateODT(w, source, trackerUrl.String()); err != nil {
+					fmt.Println(err)
+				}
+				return
 			}
-			return
+
+			if extension == "svg" {
+				trackerUrl.Path = basePath + ".css"
+				source := os.Getenv("ROOT") + "/documents/file.svg"
+				w.Header().Set("Content-Type", "image/svg+xml")
+				t := template.Must(template.New("template").ParseFiles(source))
+				params := struct{ Url string }{Url: trackerUrl.String()}
+				if err := t.ExecuteTemplate(w, "document", params); err != nil {
+					fmt.Println(err)
+				}
+				return
+			}
 		}
 
 		json_response(w, request)
