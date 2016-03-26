@@ -20,16 +20,23 @@
     <div id="details-{{ $key }}" class="panel-body {{ if $key }}hidden{{ end }}">
 
       <div class="well codewrap">
-	curl -X {{ $request.Method }} '{{ $request.FullUrl }}' {{ range $name, $value := $request.Headers }}-H '{{ $name }}: {{ index $value 0 }}' {{ end }}{{ if $request.Body }} -d '{{ $request.Body }}'{{ end }}</code>
+	curl -X {{ $request.Method }} '{{ $request.FullUrl }}' {{ range $name, $value := $request.Headers }}-H '{{ $name }}: {{ index $value 0 }}' {{ end }}{{ if $request.Body }} -d '{{ $request.Body }}'{{ end }}
       </div>
+
+      <h4>Client</h4>
+      {{ $request.RemoteAddr | lookup_addr }}
 
       {{ if $request.Headers }}
       <h4>Headers</h4>
       <table class="table table-condensed table-bordered table-striped">
 	{{ range $name, $value := $request.Headers }}
 	<tr>
-          <td class="col-xs-1"><strong>{{ $name }}</strong></td>
-          <td class="col-xs-3">{{ index $value 0 }}</td>
+	  <td class="col-xs-1"><strong>{{ $name }}</strong></td>
+	  <td class="col-xs-3">{{ index $value 0 }}
+	    {{ if eq $name "X-Real-Ip" "X-Forwarded-For" }}
+	    ({{ index $value 0 | lookup_addr }})
+	    {{ end }}
+	  </td>
 	</tr>
 	{{ end }}
       </table>
@@ -45,8 +52,8 @@
       <table class="table table-condensed table-bordered table-striped">
 	{{ range $name, $value := $request.PostForm }}
 	<tr>
-          <td class="col-xs-1"><strong>{{ $name }}</strong></td>
-          <td class="col-xs-3">{{ index $value 0 }}</td>
+	  <td class="col-xs-1"><strong>{{ $name }}</strong></td>
+	  <td class="col-xs-3">{{ index $value 0 }}</td>
 	</tr>
 	{{ end }}
       </table>

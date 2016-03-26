@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -20,7 +21,8 @@ var Logger = log.New(os.Stdout, " ", log.Ldate|log.Ltime|log.Lshortfile)
 
 func main() {
 	fmt.Println("starting")
-	redis_client, err := redis.Dial("tcp", "redis:6379")
+
+	redis_client, err := redis.Dial("tcp", os.Getenv("REDIS"))
 	if err != nil {
 		panic(err)
 	}
@@ -31,17 +33,29 @@ func main() {
 	router.HandleFunc("/api/bins/{binId}", ApiBinHandler(redis_client))
 	router.HandleFunc("/{binId}", BinHandler(redis_client))
 	router.HandleFunc("/_/{binId}", LogHandler(redis_client))
+	router.HandleFunc("/_/{binId}/{param:.*}", LogHandler(redis_client))
 	router.HandleFunc("/", HomeHandler)
-	router.PathPrefix("/").Handler(http.FileServer(http.Dir("/app/static/")))
-	log.Fatal(http.ListenAndServe(":8080", router))
+	router.PathPrefix("/").Handler(http.FileServer(http.Dir(os.Getenv("ROOT") + "/static/")))
+	log.Fatal(http.ListenAndServe(":"+os.Getenv("PORT"), router))
 }
 
 func getTemplate(w http.ResponseWriter, tmpl string) *template.Template {
-	templates := template.New("template")
-	_, err := templates.ParseFiles("/app/templates/base.html", "/app/templates/"+tmpl+".html")
+	funcMap := template.FuncMap{
+		"lookup_addr": func(addr string) []string {
+			names, err := net.LookupAddr(addr)
+			if err != nil {
+				return []string{addr}
+			}
+			return names
+		},
+	}
+	templates := template.New("template").Funcs(funcMap)
+	templates_folder := os.Getenv("ROOT") + "/templates/"
+	_, err := templates.ParseFiles(templates_folder+"base.html", templates_folder+tmpl+".html")
 	if err != nil {
 		fmt.Println(err)
 	}
+
 	return template.Must(templates, err)
 }
 
@@ -179,9 +193,15 @@ func BinHandler(redis_client redis.Conn) func(http.ResponseWriter, *http.Request
 		params := struct {
 			Requests []Request
 			Title    string
-		}{Requests: requests, Title: "Bin #" + binId}
+		}{
+			Requests: requests,
+			Title:    "Bin #" + binId,
+		}
 
-		getTemplate(w, "bin").ExecuteTemplate(w, "base", params)
+		err := getTemplate(w, "bin").ExecuteTemplate(w, "base", params)
+		if err != nil {
+			panic(err)
+		}
 	}
 }
 

@@ -4,7 +4,10 @@ api:
     - redis
   ports:
     - 8080:8080
-
+  environment:
+    - PORT=8080
+    - ROOT=/app
+    - REDIS=redis:6379
 redis:
   image: redis
   volumes:
