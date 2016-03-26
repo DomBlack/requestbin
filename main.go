@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 	"text/template"
 	"time"
 
@@ -209,8 +210,35 @@ func LogHandler(redis_client redis.Conn) func(http.ResponseWriter, *http.Request
 	return func(w http.ResponseWriter, r *http.Request) {
 		request := ParseRequest(r)
 		bin := mux.Vars(r)["binId"]
-
 		StoreRequest(redis_client, bin, request)
+
+		splitPath := strings.Split(request.Url, ".")
+		extension := splitPath[len(splitPath)-1]
+
+		staticFiles := map[string]bool{
+			"jpg": true,
+			"png": true,
+			"bmp": true,
+			"gif": true,
+		}
+
+		if staticFiles[extension] {
+			http.Redirect(w, r, "/files/file."+extension, 302)
+			return
+		}
+
+		if extension == "odt" {
+			w.Header().Set("Content-Type", "application/vnd.oasis.opendocument.text")
+			w.Header().Set("Content-Disposition", "attachment; filename=\"document.odt\"")
+
+			err := generateODT("documents/odt", w, "http://dream.hamstah.com:8080/_/docs/generated2.jpg")
+			if err != nil {
+				fmt.Println(err)
+			}
+			return
+		}
+
 		json_response(w, request)
+
 	}
 }
