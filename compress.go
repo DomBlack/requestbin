@@ -54,7 +54,8 @@ func addTemplatedFileToArchive(archive *zip.Writer, source string, filename stri
 	return err
 }
 
-func generateODT(source string, writer io.Writer, url string) error {
+func generateODT(writer io.Writer, url string) error {
+	source := "documents/odt"
 	archive := zip.NewWriter(writer)
 	defer archive.Close()
 

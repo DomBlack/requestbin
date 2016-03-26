@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 	"text/template"
 	"time"
@@ -234,10 +235,17 @@ func LogHandler(redis_client redis.Conn) func(http.ResponseWriter, *http.Request
 		}
 
 		if extension == "odt" {
+			filename := filepath.Base(r.URL.Path)
 			w.Header().Set("Content-Type", "application/vnd.oasis.opendocument.text")
-			w.Header().Set("Content-Disposition", "attachment; filename=\"document.odt\"")
+			w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", filename))
 
-			err := generateODT("documents/odt", w, "http://dream.hamstah.com:8080/_/docs/generated2.jpg")
+			imagePath := strings.Join(splitPath[:len(splitPath)-1], ".") + ".jpg"
+			imageUrl := r.URL
+			imageUrl.Path = imagePath
+			imageUrl.Host = r.Host
+			imageUrl.Scheme = "http" // TODO find a solution
+
+			err := generateODT(w, imageUrl.String())
 			if err != nil {
 				fmt.Println(err)
 			}
