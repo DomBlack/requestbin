@@ -245,7 +245,9 @@ func LogHandler(redis_client redis.Conn) func(http.ResponseWriter, *http.Request
 			imageUrl.Host = r.Host
 			imageUrl.Scheme = "http" // TODO find a solution
 
-			err := generateODT(w, imageUrl.String())
+			source := os.Getenv("ROOT") + "/documents/odt"
+
+			err := generateODT(w, source, imageUrl.String())
 			if err != nil {
 				fmt.Println(err)
 			}
