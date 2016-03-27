@@ -29,12 +29,12 @@ All requests to http://example.com/_/abc will be visible at http://example.com/a
 Bins don't need to pre-exist, just use a new one if you want.
 Requests by default expire after 24h.
 
-# File types
+## File types
 
 If your client is expecting a specific file type for your testing, the tool will return dummy data for the file types currently supported based on the file extension in the path.
 Only the file extension is used, you can choose any valid filename you want, for example to make it look more legit or to tag specific queries.
 
-## Static file types
+### Static file types
 
 The following file types are currently supported
 
@@ -48,7 +48,7 @@ The following file types are currently supported
 Just use `http://example.com/_/abc/foo.jpg` to get a valid jpg file.
 The files are under `static/files`.
 
-## Dynamic file types
+### Dynamic file types
 
 Some file types let you embed links that get automatically fetched when the file is opened.
 A url related to the dynamic file type is generated and used as the ping back url, with the appropriate file format.
@@ -68,6 +68,81 @@ $ curl http://example.com/_/foo/playlist.m3u
 http://example.com/_/foo/playlist.mp3
 ```
 
+## API
+
+You can use the following endpoints to retrieve info in `json`
+
+* `http://example.com/api/bins` To list all the bins
+* `http://example.com/api/bins/<binId>` To list the requests for that bin
+
+```
+$ http http://example.com/api/bins
+HTTP/1.1 200 OK
+Content-Length: 96
+Content-Type: application/json; charset=UTF-8
+Date: Sun, 27 Mar 2016 01:48:51 GMT
+
+[
+    "docs",
+    "foo"
+]
+```
+
+```
+$ http http://example.com/api/bins/foo
+HTTP/1.1 200 OK
+Content-Length: 654
+Content-Type: application/json; charset=UTF-8
+Date: Sun, 27 Mar 2016 01:49:03 GMT
+
+[
+    {
+        "body": "",
+        "form": {
+            "k": [
+                "1"
+            ]
+        },
+        "full_url": "http://example.com/_/foo/playlist.m3u?k=1",
+        "headers": {
+            "Accept": [
+                "*/*"
+            ],
+            "User-Agent": [
+                "curl/7.43.0"
+            ]
+        },
+        "host": "example.com",
+        "json": null,
+        "method": "GET",
+        "post_form": {},
+        "remote_addr": "10.10.123.62:46372",
+        "time": "2016-03-27T01:17:27.78127107Z",
+        "url": "/_/foo/playlist.m3u"
+    },
+    {
+        "body": "",
+        "form": {},
+        "full_url": "http://example.com/_/foo/playlist.mp3",
+        "headers": {
+            "Accept": [
+                "*/*"
+            ],
+            "User-Agent": [
+                "curl/7.43.0"
+            ]
+        },
+        "host": "example.com",
+        "json": null,
+        "method": "GET",
+        "post_form": {},
+        "remote_addr": "10.10.123.62:46354",
+        "time": "2016-03-27T01:16:32.091116201Z",
+        "url": "/_/foo/playlist.m3u"
+    }
+]
+```
+
 # How to setup
 
 The tool is meant to be run inside docker containers (one for the HTTP endpoint, one for redis).
@@ -84,6 +159,7 @@ docker-compose up
 ```
 
 You only need the `docker-compose.yml` file, no need to checkout the full repo.
+By default the container will listen on port `8080`, you can change it in `docker-compose.yml`.
 
 ### Build your own image
 
