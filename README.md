@@ -4,7 +4,7 @@
 
 This is a debugging tool to view HTTP requests made by a client.
 
-[[https://github.com/hamstah/requestbin/blob/master/docs/screenshot.png|alt=overview]]
+![Overview](docs/screenshot.png?raw=true "Overview")
 
 # Use cases
 
