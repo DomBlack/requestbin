@@ -2,6 +2,7 @@ FROM golang
 
 RUN go get "github.com/garyburd/redigo/redis"
 RUN go get "github.com/gorilla/mux"
+RUN go get "github.com/jackpal/bencode-go"
 
 ENTRYPOINT /go/bin/requestbin
 EXPOSE 8080

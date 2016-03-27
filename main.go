@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"net"
@@ -213,6 +214,14 @@ func BinHandler(redis_client redis.Conn) func(http.ResponseWriter, *http.Request
 	}
 }
 
+func RenderDocumentTemplate(writer io.Writer, source string, trackerUrl string) {
+	t := template.Must(template.New("template").ParseFiles(source))
+	params := struct{ Url string }{Url: trackerUrl}
+	if err := t.ExecuteTemplate(writer, "document", params); err != nil {
+		fmt.Println(err)
+	}
+}
+
 func LogHandler(redis_client redis.Conn) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		request := ParseRequest(r)
@@ -228,6 +237,7 @@ func LogHandler(redis_client redis.Conn) func(http.ResponseWriter, *http.Request
 			"bmp": true,
 			"gif": true,
 			"css": true,
+			"mp3": true,
 		}
 
 		if staticFiles[extension] {
@@ -236,8 +246,10 @@ func LogHandler(redis_client redis.Conn) func(http.ResponseWriter, *http.Request
 		}
 
 		dynamicFiles := map[string]bool{
-			"odt": true,
-			"svg": true,
+			"odt":     true,
+			"svg":     true,
+			"m3u":     true,
+			"torrent": true,
 		}
 
 		if dynamicFiles[extension] {
@@ -263,13 +275,27 @@ func LogHandler(redis_client redis.Conn) func(http.ResponseWriter, *http.Request
 
 			if extension == "svg" {
 				trackerUrl.Path = basePath + ".css"
-				source := os.Getenv("ROOT") + "/documents/file.svg"
 				w.Header().Set("Content-Type", "image/svg+xml")
-				t := template.Must(template.New("template").ParseFiles(source))
-				params := struct{ Url string }{Url: trackerUrl.String()}
-				if err := t.ExecuteTemplate(w, "document", params); err != nil {
-					fmt.Println(err)
-				}
+
+				source := os.Getenv("ROOT") + "/documents/file.svg"
+				RenderDocumentTemplate(w, source, trackerUrl.String())
+				return
+			}
+
+			if extension == "m3u" {
+				trackerUrl.Path = basePath + ".mp3"
+				w.Header().Set("Content-Type", "audio/mpegurl")
+
+				source := os.Getenv("ROOT") + "/documents/file.m3u"
+				RenderDocumentTemplate(w, source, trackerUrl.String())
+				return
+			}
+
+			if extension == "torrent" {
+				trackerUrl.Path = basePath + ".mp3"
+				w.Header().Set("Content-Type", "application/x-bittorrent")
+
+				generateTorrent(w, trackerUrl.String())
 				return
 			}
 		}
