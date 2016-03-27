@@ -4,6 +4,8 @@
 
 This is a debugging tool to view HTTP requests made by a client.
 
+[[https://github.com/hamstah/requestbin/blob/master/docs/screenshot.png|alt=overview]]
+
 # Use cases
 
 * Investigate file upload services. You want to know what client is being used to fetch your files. Using some file types that can have embedded links, you can also detect what is used to process your file once downloaded.
@@ -205,3 +207,4 @@ go get github.com/codegangsta/gin
 * HttpBin
     * [httpbin](http://httpbin.org)
 	* [Github](https://github.com/Runscope/httpbin)
+http://dream.hamstah.com:8080/_/demo/test.jpg
