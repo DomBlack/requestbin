@@ -112,6 +112,7 @@ go get github.com/codegangsta/gin
 
 # References
 
+* [Dropbox Opening my docs? (archived)](https://archive.is/GCWoO)
 * BSides Toronto 2014 talk "Honeydocs and Offensive Countermeasures" by Roy Firestein
     * [DocPing](https://docping.me/)
 	* [Video](https://www.youtube.com/watch?v=a-b6uyDL1Rg)
