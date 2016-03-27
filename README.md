@@ -109,3 +109,13 @@ go get "github.com/gorilla/mux"
 go get "github.com/jackpal/bencode-go"
 go get github.com/codegangsta/gin
 ```
+
+# References
+
+* BSides Toronto 2014 talk "Honeydocs and Offensive Countermeasures" by Roy Firestein
+    * [DocPing](https://docping.me/)
+	* [Video](https://www.youtube.com/watch?v=a-b6uyDL1Rg)
+	* [Slides](http://sector.ca/Portals/17/Presentations14/Roy%20Firestein%20-%20SecTor%202014.pdf)
+* Defcon 23 talk "Bugged Files, Is your Document Telling on You?" by Daniel Crowley and Damon Smith
+    * [Video](https://www.youtube.com/watch?v=M3vP-wughPo)
+	* [Slides](https://media.defcon.org/DEF%20CON%2023/DEF%20CON%2023%20presentations/DEFCON-23-Daniel-Crowley-Damon-Smith-Bugged-Files.pdf)
