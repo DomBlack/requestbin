@@ -196,3 +196,12 @@ go get github.com/codegangsta/gin
 * Defcon 23 talk "Bugged Files, Is your Document Telling on You?" by Daniel Crowley and Damon Smith
     * [Video](https://www.youtube.com/watch?v=M3vP-wughPo)
 	* [Slides](https://media.defcon.org/DEF%20CON%2023/DEF%20CON%2023%20presentations/DEFCON-23-Daniel-Crowley-Damon-Smith-Bugged-Files.pdf)
+
+# Related tools
+
+* The original request bin, I need a better name
+    * [RequestBin](http://requestb.in/)
+	* [Github](https://github.com/Runscope/requestbin)
+* HttpBin
+    * [httpbin](http://httpbin.org)
+	* [Github](https://github.com/Runscope/httpbin)
