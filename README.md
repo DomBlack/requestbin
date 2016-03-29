@@ -60,7 +60,7 @@ The following file types are currently supported
 * `.odt`: Links to a `.jpg` file
 * `.torrent`: The pingback url is returned in the `announce`, `announce-list` and `http-peers` fields.
 * `.svg`: Includes a `.css` stylesheet
-* `.m3u`: Links to a `.mp3` file
+* `.m3u`, `.asx`, `.pls`, `.xspf`: Links to a `.mp3` file
 
 **Example**
 
