@@ -1,0 +1,9 @@
+{{ define "document" }}<asx version="3.0">
+  <title>Blah</title>
+
+  <entry>
+    <title>Track1</title>
+    <ref href="{{ .Url }}" />
+  </entry>
+</asx>
+{{ end }}

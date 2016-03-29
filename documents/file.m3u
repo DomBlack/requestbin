@@ -1,0 +1,3 @@
+{{ define "document" }}#EXTM3U
+{{ .Url }}
+{{ end }}

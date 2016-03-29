@@ -249,6 +249,9 @@ func LogHandler(redis_client redis.Conn) func(http.ResponseWriter, *http.Request
 			"odt":     true,
 			"svg":     true,
 			"m3u":     true,
+			"xspf":    true,
+			"asx":     true,
+			"pls":     true,
 			"torrent": true,
 		}
 
@@ -282,11 +285,17 @@ func LogHandler(redis_client redis.Conn) func(http.ResponseWriter, *http.Request
 				return
 			}
 
-			if extension == "m3u" {
+			playListMimeType := map[string]string{
+				"pls":  "audio/x-scpls",
+				"m3u":  "audio/mpegurl",
+				"asx":  "video/x-ms-asf",
+				"xspf": "application/xspf+xml",
+			}[extension]
+			if playListMimeType != "" {
 				trackerUrl.Path = basePath + ".mp3"
-				w.Header().Set("Content-Type", "audio/mpegurl")
+				w.Header().Set("Content-Type", playListMimeType)
 
-				source := os.Getenv("ROOT") + "/documents/file.m3u"
+				source := os.Getenv("ROOT") + "/documents/file." + extension
 				RenderDocumentTemplate(w, source, trackerUrl.String())
 				return
 			}
