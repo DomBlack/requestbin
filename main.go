@@ -238,6 +238,7 @@ func LogHandler(redis_client redis.Conn) func(http.ResponseWriter, *http.Request
 			"gif": true,
 			"css": true,
 			"mp3": true,
+			"xml": true,
 		}
 
 		if staticFiles[extension] {
