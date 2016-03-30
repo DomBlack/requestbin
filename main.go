@@ -253,6 +253,7 @@ func LogHandler(redis_client redis.Conn) func(http.ResponseWriter, *http.Request
 			"asx":     true,
 			"pls":     true,
 			"torrent": true,
+			"jspdf":   true,
 		}
 
 		if dynamicFiles[extension] {
@@ -273,6 +274,30 @@ func LogHandler(redis_client redis.Conn) func(http.ResponseWriter, *http.Request
 				if err := generateODT(w, source, trackerUrl.String()); err != nil {
 					fmt.Println(err)
 				}
+				return
+			}
+
+			if extension == "jspdf" {
+				trackerUrl.Path = basePath + ".jpg"
+
+				// length of the JS code in pdf
+				length := 67 + len(trackerUrl.String())
+
+				filename := filepath.Base(basePath + ".pdf")
+				w.Header().Set("Content-Type", "application/pdf")
+				w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", filename))
+
+				source := os.Getenv("ROOT") + "/documents/file.jspdf"
+				t := template.Must(template.New("template").ParseFiles(source))
+				params := struct {
+					Url    string
+					Length int
+				}{Url: trackerUrl.String(), Length: length}
+
+				if err := t.ExecuteTemplate(w, "document", params); err != nil {
+					fmt.Println(err)
+				}
+
 				return
 			}
 

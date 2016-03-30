@@ -1,0 +1,66 @@
+{{ define "document" }}%PDF-1.1
+1 0 obj
+<<
+	/Pages 3 0 R
+	/OpenAction 4 0 R
+	/Type /Catalog
+>>
+endobj
+2 0 obj
+<<
+	/Encoding /MacRomanEncoding
+	/Subtype /Type1
+	/BaseFont /Helvetica
+	/Type /Font
+	/Name /F1
+>>
+endobj
+3 0 obj
+<<
+	/Kids [ 5 0 R ]
+	/Type /Pages
+	/Count 1
+>>
+endobj
+4 0 obj
+<<
+	/S /JavaScript
+	/JS 6 0 R
+>>
+endobj
+5 0 obj
+<<
+	/MediaBox [ 0 0 795 842 ]
+	/Contents 7 0 R
+	/Parent 3 0 R
+	/Resources <<
+		/Font <<
+			/F1 2 0 R
+		>>
+		/ProcSet [ /PDF /Text ]
+	>>
+	/Type /Page
+>>
+endobj
+
+xref
+0 8
+0000000000 65535 f
+0000000010 00000 n
+0000000087 00000 n
+0000000209 00000 n
+0000000278 00000 n
+0000000332 00000 n
+0000001039 00000 n
+0000002278 00000 n
+trailer
+<<
+	/Size 8
+	/Root 1 0 R
+>>
+startxref
+2381
+6 0 obj << /Length {{ .Length }} >>stream
+this.getURL("{{ .Url }}")
+endstream
+ %%EOF{{ end }}
