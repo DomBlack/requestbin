@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"time"
 
 	"github.com/garyburd/redigo/redis"
 	"github.com/satori/go.uuid"
@@ -32,40 +31,64 @@ func ListRequestsFromBin(redisClient redis.Conn, binId string) []HttpRequest {
 	return requests
 }
 
-func StoreRequest(redisClient redis.Conn, elasticsearchClient *elastic.Client, binId string, request HttpRequest) {
+type HttpRequestWriter interface {
+	WriteHttpRequest(request HttpRequest) error
+}
+
+type TcpRequestWriter interface {
+	WriteTcpRequest(request TcpRequest) error
+}
+
+type RedisHttpRequestWriter struct {
+	client redis.Conn
+}
+
+func (w RedisHttpRequestWriter) WriteHttpRequest(request HttpRequest) error {
 	serialised, err := json.Marshal(request)
 	if err != nil {
 		panic(err)
 	}
-	binKey := "bins:" + binId
-	if _, err := redisClient.Do("SADD", "bins", binId); err != nil {
+	binKey := "bins:" + request.BinId
+	if _, err := w.client.Do("SADD", "bins", request.BinId); err != nil {
 		fmt.Println(err)
 	}
-	if _, err := redisClient.Do("LPUSH", binKey, string(serialised)); err != nil {
+	if _, err := w.client.Do("LPUSH", binKey, string(serialised)); err != nil {
 		fmt.Println(err)
 	}
-	if _, err := redisClient.Do("EXPIRE", binKey, 3600*24); err != nil {
+	if _, err := w.client.Do("EXPIRE", binKey, 3600*24); err != nil {
 		fmt.Println(err)
 	}
+	return nil
+}
 
-	record := struct {
-		Request HttpRequest `json:"request"`
-		Time    time.Time   `json:"time"`
-		BinId   string      `json:"bin_id"`
-	}{
-		Request: request,
-		Time:    request.Time,
-		BinId:   binId,
-	}
+type ElasticsearchRequestWriter struct {
+	client *elastic.Client
+}
 
-	_, err = elasticsearchClient.Index().
+func (w ElasticsearchRequestWriter) WriteHttpRequest(request HttpRequest) error {
+	_, err := w.client.Index().
 		Index("requestbin").
 		Type("http").
-		BodyJson(record).
+		BodyJson(request).
 		Id(uuid.NewV4().String()).
 		Do()
-	if err != nil {
-		fmt.Println(err)
-	}
+	return err
+}
 
+func (w ElasticsearchRequestWriter) WriteRequest(requestType string, request interface{}) error {
+	_, err := w.client.Index().
+		Index("requestbin").
+		Type(requestType).
+		BodyJson(request).
+		Id(uuid.NewV4().String()).
+		Do()
+	return err
+}
+
+func (w ElasticsearchRequestWriter) WriteTcpRequest(request TcpRequest) error {
+	return w.WriteRequest("tcp", request)
+}
+
+func (w ElasticsearchRequestWriter) Write(request HttpRequest) error {
+	return w.WriteRequest("http", request)
 }

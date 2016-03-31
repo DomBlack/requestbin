@@ -41,13 +41,15 @@ func (request *HttpRequest) ISO8601Time() string {
 
 func startHTTPServer(root string, port string, redisClient redis.Conn, elasticsearchClient *elastic.Client) {
 	fmt.Println("Starting HTTP server on port " + port)
+	redisWriter := RedisHttpRequestWriter{client: redisClient}
+	elasticsearchWriter := ElasticsearchRequestWriter{client: elasticsearchClient}
 
 	router := mux.NewRouter().StrictSlash(true)
 	router.HandleFunc("/api/bins", ApiBinIndexHandler(redisClient))
 	router.HandleFunc("/api/bins/{binId}", ApiBinHandler(redisClient))
 	router.HandleFunc("/{binId}", BinHandler(redisClient))
-	router.HandleFunc("/_/{binId}", LogHandler(redisClient, elasticsearchClient))
-	router.HandleFunc("/_/{binId}/{param:.*}", LogHandler(redisClient, elasticsearchClient))
+	router.HandleFunc("/_/{binId}", LogHandler(redisWriter, elasticsearchWriter))
+	router.HandleFunc("/_/{binId}/{param:.*}", LogHandler(redisWriter, elasticsearchWriter))
 	router.HandleFunc("/", HomeHandler)
 	router.PathPrefix("/").Handler(http.FileServer(http.Dir(root + "/static/")))
 	go http.ListenAndServe(":"+port, router)
@@ -177,12 +179,16 @@ func getTemplate(w http.ResponseWriter, tmpl string) *template.Template {
 	return template.Must(templates, err)
 }
 
-func LogHandler(redisClient redis.Conn, elasticsearchClient *elastic.Client) func(http.ResponseWriter, *http.Request) {
+func LogHandler(writers ...HttpRequestWriter) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		binId := mux.Vars(r)["binId"]
 		request := ParseHttpRequest(r, binId)
-
-		StoreRequest(redisClient, elasticsearchClient, binId, request)
+		for _, writer := range writers {
+			err := writer.WriteHttpRequest(request)
+			if err != nil {
+				fmt.Println(err)
+			}
+		}
 
 		splitPath := strings.Split(request.Url, ".")
 		extension := splitPath[len(splitPath)-1]

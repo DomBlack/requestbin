@@ -7,12 +7,18 @@ import (
 	"net"
 	"time"
 
-	"github.com/satori/go.uuid"
 	"gopkg.in/olivere/elastic.v3"
 )
 
+type TcpRequest struct {
+	Time    time.Time `json:"time"`
+	Content string    `json:"content"`
+}
+
 func startTCPServer(elasticsearchClient *elastic.Client) {
 	fmt.Println("Starting TCP server on port 9999")
+	elasticsearchWriter := ElasticsearchRequestWriter{client: elasticsearchClient}
+
 	server, err := net.Listen("tcp", ":9999")
 
 	if server == nil {
@@ -20,7 +26,7 @@ func startTCPServer(elasticsearchClient *elastic.Client) {
 	}
 	conns := clientConns(server)
 	for {
-		go handleConn(<-conns, elasticsearchClient)
+		go handleConn(<-conns, elasticsearchWriter)
 	}
 }
 
@@ -43,7 +49,7 @@ func clientConns(listener net.Listener) chan net.Conn {
 	return ch
 }
 
-func handleConn(client net.Conn, elasticsearchClient *elastic.Client) {
+func handleConn(client net.Conn, writers ...TcpRequestWriter) {
 	b := bufio.NewReader(client)
 	var res bytes.Buffer
 
@@ -55,23 +61,16 @@ func handleConn(client net.Conn, elasticsearchClient *elastic.Client) {
 			break
 		}
 	}
-	fmt.Println("read: " + res.String())
-	record := struct {
-		Content string    `json:"content"`
-		Time    time.Time `json:"time"`
-	}{
+	request := TcpRequest{
 		Content: res.String(),
 		Time:    time.Now(),
 	}
-
-	_, err := elasticsearchClient.Index().
-		Index("requestbin").
-		Type("tcp").
-		BodyJson(record).
-		Id(uuid.NewV4().String()).
-		Do()
-	if err != nil {
-		fmt.Println(err)
+	for _, writer := range writers {
+		err := writer.WriteTcpRequest(request)
+		if err != nil {
+			fmt.Println(err)
+		}
 	}
+
 	client.Close()
 }
