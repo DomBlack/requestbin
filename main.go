@@ -8,18 +8,18 @@ import (
 	"gopkg.in/olivere/elastic.v3"
 )
 
-func main() {
-	fmt.Println("starting")
-
-	redisClient, err := redis.Dial("tcp", os.Getenv("REDIS"))
+func setupRedis(config string) redis.Conn {
+	redisClient, err := redis.Dial("tcp", config)
 	if err != nil {
 		panic(err)
 	}
 	defer redisClient.Close()
+	return redisClient
+}
 
-	fmt.Println(os.Getenv("ELASTICSEARCH"))
+func setupElasticsearch(config string) *elastic.Client {
 	elasticsearchClient, err := elastic.NewClient(
-		elastic.SetURL("http://" + os.Getenv("ELASTICSEARCH")),
+		elastic.SetURL("http://" + config),
 	)
 	if err != nil {
 		// Handle error
@@ -36,6 +36,14 @@ func main() {
 			panic(err)
 		}
 	}
+	return elasticsearchClient
+}
+
+func main() {
+	fmt.Println("starting")
+
+	redisClient := setupRedis(os.Getenv("REDIS"))
+	elasticsearchClient := setupElasticsearch(os.Getenv("ELASTICSEARCH"))
 
 	elasticsearchWriter := ElasticsearchRequestWriter{client: elasticsearchClient}
 
