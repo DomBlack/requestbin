@@ -161,7 +161,7 @@ func getTemplate(w http.ResponseWriter, tmpl string) *template.Template {
 	return template.Must(templates, err)
 }
 
-type Request struct {
+type HttpRequest struct {
 	Url        string      `json:"url"`
 	FullUrl    string      `json:"full_url"`
 	Method     string      `json:"method"`
@@ -176,11 +176,11 @@ type Request struct {
 	BinId      string      `json:"bin_id"`
 }
 
-func (request *Request) ISO8601Time() string {
+func (request *HttpRequest) ISO8601Time() string {
 	return request.Time.Format(time.RFC3339)
 }
 
-func ParseRequest(r *http.Request, binId string) Request {
+func ParseHttpRequest(r *http.Request, binId string) HttpRequest {
 	// Read the content
 	var bodyBytes []byte
 	if r.Body != nil {
@@ -206,7 +206,7 @@ func ParseRequest(r *http.Request, binId string) Request {
 	fullUrl.Scheme = "http" // TODO find a solution
 	fullUrl.RawQuery = r.URL.Query().Encode()
 
-	return Request{
+	return HttpRequest{
 		Url:        r.URL.Path,
 		FullUrl:    fullUrl.String(),
 		Method:     r.Method,
@@ -230,12 +230,12 @@ func ListBins(redisClient redis.Conn) []string {
 	return bins
 }
 
-func ListRequestsFromBin(redisClient redis.Conn, binId string) []Request {
+func ListRequestsFromBin(redisClient redis.Conn, binId string) []HttpRequest {
 	raw_requests, err := redis.Strings(redisClient.Do("LRANGE", "bins:"+binId, 0, 10))
 	if err != nil {
 		panic(err)
 	}
-	var requests = make([]Request, len(raw_requests))
+	var requests = make([]HttpRequest, len(raw_requests))
 	for i, item := range raw_requests {
 		if err = json.Unmarshal([]byte(item), &requests[i]); err != nil {
 			panic(err)
@@ -244,7 +244,7 @@ func ListRequestsFromBin(redisClient redis.Conn, binId string) []Request {
 	return requests
 }
 
-func StoreRequest(redisClient redis.Conn, elasticsearchClient *elastic.Client, binId string, request Request) {
+func StoreRequest(redisClient redis.Conn, elasticsearchClient *elastic.Client, binId string, request HttpRequest) {
 	serialised, err := json.Marshal(request)
 	if err != nil {
 		panic(err)
@@ -261,9 +261,9 @@ func StoreRequest(redisClient redis.Conn, elasticsearchClient *elastic.Client, b
 	}
 
 	record := struct {
-		Request Request   `json:"request"`
-		Time    time.Time `json:"time"`
-		BinId   string    `json:"bin_id"`
+		Request HttpRequest `json:"request"`
+		Time    time.Time   `json:"time"`
+		BinId   string      `json:"bin_id"`
 	}{
 		Request: request,
 		Time:    request.Time,
@@ -322,7 +322,7 @@ func BinHandler(redisClient redis.Conn) func(http.ResponseWriter, *http.Request)
 		requests := ListRequestsFromBin(redisClient, binId)
 
 		params := struct {
-			Requests []Request
+			Requests []HttpRequest
 			Title    string
 		}{
 			Requests: requests,
@@ -347,7 +347,7 @@ func RenderDocumentTemplate(writer io.Writer, source string, trackerUrl string) 
 func LogHandler(redisClient redis.Conn, elasticsearchClient *elastic.Client) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		binId := mux.Vars(r)["binId"]
-		request := ParseRequest(r, binId)
+		request := ParseHttpRequest(r, binId)
 
 		StoreRequest(redisClient, elasticsearchClient, binId, request)
 
