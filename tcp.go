@@ -15,11 +15,11 @@ type TcpRequest struct {
 	Content string    `json:"content"`
 }
 
-func startTCPServer(elasticsearchClient *elastic.Client) {
-	fmt.Println("Starting TCP server on port 9999")
+func startTCPServer(port string, elasticsearchClient *elastic.Client) {
+	fmt.Println("Starting TCP server on port " + port)
 	elasticsearchWriter := ElasticsearchRequestWriter{client: elasticsearchClient}
 
-	server, err := net.Listen("tcp", ":9999")
+	server, err := net.Listen("tcp", port)
 
 	if server == nil {
 		panic(fmt.Sprintf("couldn't start listening: %s", err))

@@ -41,7 +41,9 @@ func main() {
 	httpPort := os.Getenv("PORT")
 
 	startHTTPServer(httpRoot, httpPort, redisClient, elasticsearchClient)
-	startTCPServer(elasticsearchClient)
+
+	tcpPort := os.Getenv("TCP_PORT")
+	startTCPServer(tcpPort, elasticsearchClient)
 	fmt.Println("started")
 
 }
