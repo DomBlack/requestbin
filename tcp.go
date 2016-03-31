@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"net"
 	"time"
-
-	"gopkg.in/olivere/elastic.v3"
 )
 
 type TcpRequest struct {
@@ -15,10 +13,8 @@ type TcpRequest struct {
 	Content string    `json:"content"`
 }
 
-func startTCPServer(port string, elasticsearchClient *elastic.Client) {
+func startTCPServer(port string, writers ...TcpRequestWriter) {
 	fmt.Println("Starting TCP server on port " + port)
-	elasticsearchWriter := ElasticsearchRequestWriter{client: elasticsearchClient}
-
 	server, err := net.Listen("tcp", port)
 
 	if server == nil {
@@ -26,7 +22,7 @@ func startTCPServer(port string, elasticsearchClient *elastic.Client) {
 	}
 	conns := clientConns(server)
 	for {
-		go handleConn(<-conns, elasticsearchWriter)
+		go handleConn(<-conns, writers...)
 	}
 }
 

@@ -37,16 +37,15 @@ func main() {
 		}
 	}
 
+	elasticsearchWriter := ElasticsearchRequestWriter{client: elasticsearchClient}
+
 	httpRoot := os.Getenv("ROOT")
 	httpPort := os.Getenv("PORT")
 
 	redisWriter := RedisHttpRequestWriter{client: redisClient}
-	elasticsearchWriter := ElasticsearchRequestWriter{client: elasticsearchClient}
-
 	startHTTPServer(httpRoot, httpPort, redisClient, redisWriter, elasticsearchWriter)
 
 	tcpPort := os.Getenv("TCP_PORT")
-	startTCPServer(tcpPort, elasticsearchClient)
+	startTCPServer(tcpPort, elasticsearchWriter)
 	fmt.Println("started")
-
 }
