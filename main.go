@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -18,6 +19,8 @@ import (
 
 	"github.com/garyburd/redigo/redis"
 	"github.com/gorilla/mux"
+	"github.com/satori/go.uuid"
+	"gopkg.in/olivere/elastic.v3"
 )
 
 var Logger = log.New(os.Stdout, " ", log.Ldate|log.Ltime|log.Lshortfile)
@@ -25,21 +28,117 @@ var Logger = log.New(os.Stdout, " ", log.Ldate|log.Ltime|log.Lshortfile)
 func main() {
 	fmt.Println("starting")
 
-	redis_client, err := redis.Dial("tcp", os.Getenv("REDIS"))
+	redisClient, err := redis.Dial("tcp", os.Getenv("REDIS"))
 	if err != nil {
 		panic(err)
 	}
-	defer redis_client.Close()
+	defer redisClient.Close()
+
+	fmt.Println(os.Getenv("ELASTICSEARCH"))
+	elasticsearchClient, err := elastic.NewClient(
+		elastic.SetURL("http://" + os.Getenv("ELASTICSEARCH")),
+	)
+	if err != nil {
+		// Handle error
+		panic(err)
+	}
+	exists, err := elasticsearchClient.IndexExists("requestbin").Do()
+	if err != nil {
+		panic(err)
+	}
+	if !exists {
+		_, err = elasticsearchClient.CreateIndex("requestbin").Do()
+		if err != nil {
+			// Handle error
+			panic(err)
+		}
+	}
+
+	httpRoot := os.Getenv("ROOT")
+	httpPort := os.Getenv("PORT")
+	startHTTPServer(httpRoot, httpPort, redisClient, elasticsearchClient)
+	startTCPServer(elasticsearchClient)
+	fmt.Println("started")
+
+}
+
+func startHTTPServer(root string, port string, redisClient redis.Conn, elasticsearchClient *elastic.Client) {
+	fmt.Println("Starting HTTP server on port " + port)
 
 	router := mux.NewRouter().StrictSlash(true)
-	router.HandleFunc("/api/bins", ApiBinIndexHandler(redis_client))
-	router.HandleFunc("/api/bins/{binId}", ApiBinHandler(redis_client))
-	router.HandleFunc("/{binId}", BinHandler(redis_client))
-	router.HandleFunc("/_/{binId}", LogHandler(redis_client))
-	router.HandleFunc("/_/{binId}/{param:.*}", LogHandler(redis_client))
+	router.HandleFunc("/api/bins", ApiBinIndexHandler(redisClient))
+	router.HandleFunc("/api/bins/{binId}", ApiBinHandler(redisClient))
+	router.HandleFunc("/{binId}", BinHandler(redisClient))
+	router.HandleFunc("/_/{binId}", LogHandler(redisClient, elasticsearchClient))
+	router.HandleFunc("/_/{binId}/{param:.*}", LogHandler(redisClient, elasticsearchClient))
 	router.HandleFunc("/", HomeHandler)
-	router.PathPrefix("/").Handler(http.FileServer(http.Dir(os.Getenv("ROOT") + "/static/")))
-	log.Fatal(http.ListenAndServe(":"+os.Getenv("PORT"), router))
+	router.PathPrefix("/").Handler(http.FileServer(http.Dir(root + "/static/")))
+	go http.ListenAndServe(":"+port, router)
+}
+
+func startTCPServer(elasticsearchClient *elastic.Client) {
+	fmt.Println("Starting TCP server on port 9999")
+	server, err := net.Listen("tcp", ":9999")
+
+	if server == nil {
+		panic(fmt.Sprintf("couldn't start listening: %s", err))
+	}
+	conns := clientConns(server)
+	for {
+		go handleConn(<-conns, elasticsearchClient)
+	}
+}
+
+func clientConns(listener net.Listener) chan net.Conn {
+	ch := make(chan net.Conn)
+	i := 0
+	go func() {
+		for {
+			client, err := listener.Accept()
+			if client == nil {
+				fmt.Printf(fmt.Sprintf("couldn't accept: %s", err))
+				continue
+			}
+			i++
+			fmt.Printf("%d: %v <-> %v\n", i, client.LocalAddr(), client.RemoteAddr())
+			client.SetReadDeadline(time.Now().Add(4 * time.Second))
+			ch <- client
+		}
+	}()
+	return ch
+}
+
+func handleConn(client net.Conn, elasticsearchClient *elastic.Client) {
+	b := bufio.NewReader(client)
+	var res bytes.Buffer
+
+	buf := make([]byte, 32)
+	for {
+		size, err := b.Read(buf)
+		res.Write(buf[:size])
+		if err != nil {
+			break
+		}
+	}
+	fmt.Println("read: " + res.String())
+	record := struct {
+		Content string    `json:"content"`
+		Time    time.Time `json:"time"`
+	}{
+		Content: res.String(),
+		Time:    time.Now(),
+	}
+
+	_, err := elasticsearchClient.Index().
+		Index("requestbin").
+		Type("tcp").
+		BodyJson(record).
+		Id(uuid.NewV4().String()).
+		Do()
+	if err != nil {
+		fmt.Println(err)
+	}
+	client.Close()
 }
 
 func getTemplate(w http.ResponseWriter, tmpl string) *template.Template {
@@ -74,13 +173,14 @@ type Request struct {
 	PostForm   url.Values  `json:"post_form"`
 	Form       url.Values  `json:"form"`
 	JSON       interface{} `json:"json"`
+	BinId      string      `json:"bin_id"`
 }
 
 func (request *Request) ISO8601Time() string {
 	return request.Time.Format(time.RFC3339)
 }
 
-func ParseRequest(r *http.Request) Request {
+func ParseRequest(r *http.Request, binId string) Request {
 	// Read the content
 	var bodyBytes []byte
 	if r.Body != nil {
@@ -118,19 +218,20 @@ func ParseRequest(r *http.Request) Request {
 		PostForm:   r.PostForm,
 		Form:       r.Form,
 		JSON:       json_content,
+		BinId:      binId,
 	}
 }
 
-func ListBins(redis_client redis.Conn) []string {
-	bins, err := redis.Strings(redis_client.Do("SMEMBERS", "bins"))
+func ListBins(redisClient redis.Conn) []string {
+	bins, err := redis.Strings(redisClient.Do("SMEMBERS", "bins"))
 	if err != nil {
 		panic(err)
 	}
 	return bins
 }
 
-func ListRequestsFromBin(redis_client redis.Conn, binId string) []Request {
-	raw_requests, err := redis.Strings(redis_client.Do("LRANGE", "bins:"+binId, 0, 10))
+func ListRequestsFromBin(redisClient redis.Conn, binId string) []Request {
+	raw_requests, err := redis.Strings(redisClient.Do("LRANGE", "bins:"+binId, 0, 10))
 	if err != nil {
 		panic(err)
 	}
@@ -143,21 +244,42 @@ func ListRequestsFromBin(redis_client redis.Conn, binId string) []Request {
 	return requests
 }
 
-func StoreRequest(redis_client redis.Conn, binId string, request Request) {
+func StoreRequest(redisClient redis.Conn, elasticsearchClient *elastic.Client, binId string, request Request) {
 	serialised, err := json.Marshal(request)
 	if err != nil {
 		panic(err)
 	}
 	binKey := "bins:" + binId
-	if _, err := redis_client.Do("SADD", "bins", binId); err != nil {
+	if _, err := redisClient.Do("SADD", "bins", binId); err != nil {
 		fmt.Println(err)
 	}
-	if _, err := redis_client.Do("LPUSH", binKey, string(serialised)); err != nil {
+	if _, err := redisClient.Do("LPUSH", binKey, string(serialised)); err != nil {
 		fmt.Println(err)
 	}
-	if _, err := redis_client.Do("EXPIRE", binKey, 3600*24); err != nil {
+	if _, err := redisClient.Do("EXPIRE", binKey, 3600*24); err != nil {
 		fmt.Println(err)
 	}
+
+	record := struct {
+		Request Request   `json:"request"`
+		Time    time.Time `json:"time"`
+		BinId   string    `json:"bin_id"`
+	}{
+		Request: request,
+		Time:    request.Time,
+		BinId:   binId,
+	}
+
+	_, err = elasticsearchClient.Index().
+		Index("requestbin").
+		Type("http").
+		BodyJson(record).
+		Id(uuid.NewV4().String()).
+		Do()
+	if err != nil {
+		fmt.Println(err)
+	}
+
 }
 
 func json_response(w http.ResponseWriter, body interface{}) {
@@ -168,19 +290,19 @@ func json_response(w http.ResponseWriter, body interface{}) {
 	}
 }
 
-func ApiBinHandler(redis_client redis.Conn) func(http.ResponseWriter, *http.Request) {
+func ApiBinHandler(redisClient redis.Conn) func(http.ResponseWriter, *http.Request) {
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		bin := mux.Vars(r)["binId"]
-		requests := ListRequestsFromBin(redis_client, bin)
+		requests := ListRequestsFromBin(redisClient, bin)
 		json_response(w, requests)
 	}
 }
 
-func ApiBinIndexHandler(redis_client redis.Conn) func(http.ResponseWriter, *http.Request) {
+func ApiBinIndexHandler(redisClient redis.Conn) func(http.ResponseWriter, *http.Request) {
 
 	return func(w http.ResponseWriter, r *http.Request) {
-		bins := ListBins(redis_client)
+		bins := ListBins(redisClient)
 		json_response(w, bins)
 	}
 }
@@ -193,11 +315,11 @@ func HomeHandler(w http.ResponseWriter, r *http.Request) {
 	getTemplate(w, "home").ExecuteTemplate(w, "base", params)
 }
 
-func BinHandler(redis_client redis.Conn) func(http.ResponseWriter, *http.Request) {
+func BinHandler(redisClient redis.Conn) func(http.ResponseWriter, *http.Request) {
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		binId := mux.Vars(r)["binId"]
-		requests := ListRequestsFromBin(redis_client, binId)
+		requests := ListRequestsFromBin(redisClient, binId)
 
 		params := struct {
 			Requests []Request
@@ -222,11 +344,12 @@ func RenderDocumentTemplate(writer io.Writer, source string, trackerUrl string) 
 	}
 }
 
-func LogHandler(redis_client redis.Conn) func(http.ResponseWriter, *http.Request) {
+func LogHandler(redisClient redis.Conn, elasticsearchClient *elastic.Client) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		request := ParseRequest(r)
-		bin := mux.Vars(r)["binId"]
-		StoreRequest(redis_client, bin, request)
+		binId := mux.Vars(r)["binId"]
+		request := ParseRequest(r, binId)
+
+		StoreRequest(redisClient, elasticsearchClient, binId, request)
 
 		splitPath := strings.Split(request.Url, ".")
 		extension := splitPath[len(splitPath)-1]
