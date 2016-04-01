@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/garyburd/redigo/redis"
@@ -51,10 +52,14 @@ func main() {
 	elasticsearchWriter := ElasticsearchRequestWriter{client: elasticsearchClient}
 
 	httpRoot := os.Getenv("ROOT")
-	httpPort := os.Getenv("PORT")
+	httpPort, err := strconv.Atoi(os.Getenv("PORT"))
+	if err != nil {
+		panic(fmt.Sprintf("Invalid port %s", os.Getenv("PORT")))
+	}
 
 	redisWriter := RedisHttpRequestWriter{client: redisClient}
-	startHTTPServer(httpRoot, httpPort, redisClient, redisWriter, elasticsearchWriter)
+	startLoggingHttpServer(httpPort, redisWriter, elasticsearchWriter)
+	startAdminHttpServer(httpRoot, httpPort+1, redisClient, redisWriter, elasticsearchWriter)
 
 	tcpPort := os.Getenv("TCP_PORT")
 	startTCPServer(tcpPort, elasticsearchWriter)

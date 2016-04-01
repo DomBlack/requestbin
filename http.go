@@ -38,18 +38,25 @@ func (request *HttpRequest) ISO8601Time() string {
 	return request.Time.Format(time.RFC3339)
 }
 
-func startHTTPServer(root string, port string, redisClient redis.Conn, writers ...HttpRequestWriter) {
-	fmt.Println("Starting HTTP server on port " + port)
+func startLoggingHttpServer(port int, writers ...HttpRequestWriter) {
+	fmt.Printf("Starting HTTP logging server on port %d\n", port)
+
+	router := mux.NewRouter().StrictSlash(true)
+	router.HandleFunc("/{binId}", LogHandler(writers...))
+	router.HandleFunc("/{binId}/{param:.*}", LogHandler(writers...))
+	go http.ListenAndServe(fmt.Sprintf(":%d", port), router)
+}
+
+func startAdminHttpServer(root string, port int, redisClient redis.Conn, writers ...HttpRequestWriter) {
+	fmt.Printf("Starting HTTP admin server on port %d\n", port)
 
 	router := mux.NewRouter().StrictSlash(true)
 	router.HandleFunc("/api/bins", ApiBinIndexHandler(redisClient))
 	router.HandleFunc("/api/bins/{binId}", ApiBinHandler(redisClient))
 	router.HandleFunc("/{binId}", BinHandler(redisClient))
-	router.HandleFunc("/_/{binId}", LogHandler(writers...))
-	router.HandleFunc("/_/{binId}/{param:.*}", LogHandler(writers...))
 	router.HandleFunc("/", HomeHandler)
 	router.PathPrefix("/").Handler(http.FileServer(http.Dir(root + "/static/")))
-	go http.ListenAndServe(":"+port, router)
+	go http.ListenAndServe(fmt.Sprintf(":%d", port), router)
 }
 
 func ParseHttpRequest(r *http.Request, binId string) HttpRequest {
