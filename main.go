@@ -13,7 +13,6 @@ func setupRedis(config string) redis.Conn {
 	if err != nil {
 		panic(err)
 	}
-	defer redisClient.Close()
 	return redisClient
 }
 
@@ -43,6 +42,8 @@ func main() {
 	fmt.Println("starting")
 
 	redisClient := setupRedis(os.Getenv("REDIS"))
+	defer redisClient.Close()
+
 	elasticsearchClient := setupElasticsearch(os.Getenv("ELASTICSEARCH"))
 
 	elasticsearchWriter := ElasticsearchRequestWriter{client: elasticsearchClient}
