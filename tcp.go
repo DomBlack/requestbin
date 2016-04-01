@@ -9,9 +9,8 @@ import (
 )
 
 type TcpRequest struct {
-	Time       time.Time `json:"time"`
-	Content    string    `json:"content"`
-	RemoteAddr string    `json:"remote_addr"`
+	Request
+	Content string `json:"content"`
 }
 
 func startTCPServer(port string, writers ...TcpRequestWriter) {
@@ -59,9 +58,11 @@ func handleConn(client net.Conn, writers ...TcpRequestWriter) {
 		}
 	}
 	request := TcpRequest{
-		Content:    res.String(),
-		Time:       time.Now(),
-		RemoteAddr: client.RemoteAddr().String(),
+		Request{
+			Time:       time.Now(),
+			RemoteAddr: client.RemoteAddr().String(),
+		},
+		res.String(),
 	}
 	for _, writer := range writers {
 		err := writer.WriteTcpRequest(request)

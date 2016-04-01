@@ -31,14 +31,13 @@ type UserAgentInfo struct {
 }
 
 type HttpRequest struct {
+	Request
 	Url           string        `json:"url"`
 	FullUrl       string        `json:"full_url"`
 	Method        string        `json:"method"`
-	Time          time.Time     `json:"time"`
 	Headers       http.Header   `json:"headers"`
 	Body          string        `json:"body"`
 	Host          string        `json:"host"`
-	RemoteAddr    string        `json:"remote_addr"`
 	PostForm      url.Values    `json:"post_form"`
 	Form          url.Values    `json:"form"`
 	JSON          interface{}   `json:"json"`
@@ -135,19 +134,21 @@ func ParseHttpRequest(r *http.Request, binId string) HttpRequest {
 	userAgentInfo, _ := GetUserAgentInfo(r)
 
 	return HttpRequest{
-		Url:           r.URL.Path,
-		FullUrl:       fullUrl.String(),
-		Method:        r.Method,
-		Host:          r.Host,
-		Time:          time.Now(),
-		Headers:       r.Header,
-		Body:          string(body),
-		RemoteAddr:    r.RemoteAddr,
-		PostForm:      r.PostForm,
-		Form:          r.Form,
-		JSON:          json_content,
-		BinId:         binId,
-		UserAgentInfo: userAgentInfo,
+		Request{
+			Time:       time.Now(),
+			RemoteAddr: r.RemoteAddr,
+		},
+		r.URL.Path,
+		fullUrl.String(),
+		r.Method,
+		r.Header,
+		string(body),
+		r.Host,
+		r.PostForm,
+		r.Form,
+		json_content,
+		binId,
+		userAgentInfo,
 	}
 }
 

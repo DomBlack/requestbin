@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/garyburd/redigo/redis"
+	"github.com/oschwald/geoip2-golang"
 	"gopkg.in/olivere/elastic.v3"
 )
 
@@ -43,15 +44,21 @@ func setupElasticsearch(config string) *elastic.Client {
 
 func main() {
 	fmt.Println("starting")
+	root := os.Getenv("ROOT")
 
 	redisClient := setupRedis(os.Getenv("REDIS"))
 	defer redisClient.Close()
 
+	db, err := geoip2.Open(root + "/GeoLite2-City.mmdb")
+	if err != nil {
+		panic(err)
+	}
+	defer db.Close()
+
 	elasticsearchClient := setupElasticsearch(os.Getenv("ELASTICSEARCH"))
 
-	elasticsearchWriter := ElasticsearchRequestWriter{client: elasticsearchClient}
+	elasticsearchWriter := ElasticsearchRequestWriter{client: elasticsearchClient, GeoIPDB: db}
 
-	root := os.Getenv("ROOT")
 	httpPort, err := strconv.Atoi(os.Getenv("PORT"))
 	if err != nil {
 		panic(fmt.Sprintf("Invalid port %s", os.Getenv("PORT")))

@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/garyburd/redigo/redis"
+	"github.com/oschwald/geoip2-golang"
 	"github.com/satori/go.uuid"
 	"gopkg.in/olivere/elastic.v3"
 )
@@ -62,33 +63,42 @@ func (w RedisHttpRequestWriter) WriteHttpRequest(request HttpRequest) error {
 }
 
 type ElasticsearchRequestWriter struct {
-	client *elastic.Client
+	client  *elastic.Client
+	GeoIPDB *geoip2.Reader
 }
 
-func (w ElasticsearchRequestWriter) WriteHttpRequest(request HttpRequest) error {
-	_, err := w.client.Index().
-		Index("requestbin").
-		Type("http").
-		BodyJson(request).
-		Id(uuid.NewV4().String()).
-		Do()
-	return err
-}
-
-func (w ElasticsearchRequestWriter) WriteRequest(requestType string, request interface{}) error {
+func (w ElasticsearchRequestWriter) WriteJSONRequest(requestType string, jsonRequest string) error {
 	_, err := w.client.Index().
 		Index("requestbin").
 		Type(requestType).
-		BodyJson(request).
+		BodyJson(jsonRequest).
 		Id(uuid.NewV4().String()).
 		Do()
 	return err
 }
 
 func (w ElasticsearchRequestWriter) WriteTcpRequest(request TcpRequest) error {
-	return w.WriteRequest("tcp", request)
+	geoIP, err := RemoteAddrToGeoIP(w.GeoIPDB, request.RemoteAddr)
+	if err == nil {
+		request.GeoIP = *geoIP
+	}
+
+	jsonRequest, err := json.Marshal(request)
+	if err != nil {
+		return err
+	}
+	return w.WriteJSONRequest("tcp", string(jsonRequest))
 }
 
-func (w ElasticsearchRequestWriter) Write(request HttpRequest) error {
-	return w.WriteRequest("http", request)
+func (w ElasticsearchRequestWriter) WriteHttpRequest(request HttpRequest) error {
+	geoIP, err := RemoteAddrToGeoIP(w.GeoIPDB, request.RemoteAddr)
+	if err == nil {
+		request.GeoIP = *geoIP
+	}
+
+	jsonRequest, err := json.Marshal(request)
+	if err != nil {
+		return err
+	}
+	return w.WriteJSONRequest("http", string(jsonRequest))
 }
