@@ -42,6 +42,7 @@ func startLoggingHttpServer(port int, writers ...HttpRequestWriter) {
 	fmt.Printf("Starting HTTP logging server on port %d\n", port)
 
 	router := mux.NewRouter().StrictSlash(true)
+	router.HandleFunc("/", LogHandler(writers...))
 	router.HandleFunc("/{binId}", LogHandler(writers...))
 	router.HandleFunc("/{binId}/{param:.*}", LogHandler(writers...))
 	go http.ListenAndServe(fmt.Sprintf(":%d", port), router)
@@ -185,7 +186,10 @@ func getTemplate(w http.ResponseWriter, tmpl string) *template.Template {
 
 func LogHandler(writers ...HttpRequestWriter) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		binId := mux.Vars(r)["binId"]
+		binId, ok := mux.Vars(r)["binId"]
+		if !ok {
+			binId = "_root"
+		}
 		request := ParseHttpRequest(r, binId)
 		for _, writer := range writers {
 			err := writer.WriteHttpRequest(request)
