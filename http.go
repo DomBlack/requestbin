@@ -47,7 +47,7 @@ func startLoggingHttpServer(port int, writers ...HttpRequestWriter) {
 	go http.ListenAndServe(fmt.Sprintf(":%d", port), router)
 }
 
-func startAdminHttpServer(root string, port int, redisClient redis.Conn, writers ...HttpRequestWriter) {
+func startAdminHttpServer(port int, staticRoot string, redisClient redis.Conn) {
 	fmt.Printf("Starting HTTP admin server on port %d\n", port)
 
 	router := mux.NewRouter().StrictSlash(true)
@@ -55,7 +55,7 @@ func startAdminHttpServer(root string, port int, redisClient redis.Conn, writers
 	router.HandleFunc("/api/bins/{binId}", ApiBinHandler(redisClient))
 	router.HandleFunc("/{binId}", BinHandler(redisClient))
 	router.HandleFunc("/", HomeHandler)
-	router.PathPrefix("/").Handler(http.FileServer(http.Dir(root + "/static/")))
+	router.PathPrefix("/").Handler(http.FileServer(http.Dir(staticRoot)))
 	go http.ListenAndServe(fmt.Sprintf(":%d", port), router)
 }
 

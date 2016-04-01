@@ -21,7 +21,7 @@ func setupRedis(config string) redis.Conn {
 func setupElasticsearch(config string) *elastic.Client {
 	elasticsearchClient, err := elastic.NewClient(
 		elastic.SetURL("http://"+config),
-		elastic.SetHealthcheckTimeout(5*time.Second),
+		elastic.SetHealthcheckTimeout(15*time.Second),
 	)
 	if err != nil {
 		// Handle error
@@ -51,7 +51,7 @@ func main() {
 
 	elasticsearchWriter := ElasticsearchRequestWriter{client: elasticsearchClient}
 
-	httpRoot := os.Getenv("ROOT")
+	root := os.Getenv("ROOT")
 	httpPort, err := strconv.Atoi(os.Getenv("PORT"))
 	if err != nil {
 		panic(fmt.Sprintf("Invalid port %s", os.Getenv("PORT")))
@@ -59,7 +59,8 @@ func main() {
 
 	redisWriter := RedisHttpRequestWriter{client: redisClient}
 	startLoggingHttpServer(httpPort, redisWriter, elasticsearchWriter)
-	startAdminHttpServer(httpRoot, httpPort+1, redisClient, redisWriter, elasticsearchWriter)
+	startAdminHttpServer(httpPort+1, root+"/static/", redisClient)
+	startKibanaProxy(httpPort+2, os.Getenv("KIBANA"), root+"/passwd")
 
 	tcpPort := os.Getenv("TCP_PORT")
 	startTCPServer(tcpPort, elasticsearchWriter)
