@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/garyburd/redigo/redis"
 	"gopkg.in/olivere/elastic.v3"
@@ -18,7 +19,8 @@ func setupRedis(config string) redis.Conn {
 
 func setupElasticsearch(config string) *elastic.Client {
 	elasticsearchClient, err := elastic.NewClient(
-		elastic.SetURL("http://" + config),
+		elastic.SetURL("http://"+config),
+		elastic.SetHealthcheckTimeout(5*time.Second),
 	)
 	if err != nil {
 		// Handle error
