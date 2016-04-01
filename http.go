@@ -19,23 +19,69 @@ import (
 	"github.com/gorilla/mux"
 )
 
+type UserAgentInfo struct {
+	AgentType         string `json:"agent_type"`
+	AgentName         string `json:"agent_name"`
+	AgentVersion      string `json:"agent_version"`
+	OSType            string `json:"os_type"`
+	OSName            string `json:"os_name"`
+	OSVersionName     string `json:"os_versionName"`
+	OSVersionNumber   string `json:"os_versionNumber"`
+	LinuxDistribution string `json:"linux_distribution"`
+}
+
 type HttpRequest struct {
-	Url        string      `json:"url"`
-	FullUrl    string      `json:"full_url"`
-	Method     string      `json:"method"`
-	Time       time.Time   `json:"time"`
-	Headers    http.Header `json:"headers"`
-	Body       string      `json:"body"`
-	Host       string      `json:"host"`
-	RemoteAddr string      `json:"remote_addr"`
-	PostForm   url.Values  `json:"post_form"`
-	Form       url.Values  `json:"form"`
-	JSON       interface{} `json:"json"`
-	BinId      string      `json:"bin_id"`
+	Url           string        `json:"url"`
+	FullUrl       string        `json:"full_url"`
+	Method        string        `json:"method"`
+	Time          time.Time     `json:"time"`
+	Headers       http.Header   `json:"headers"`
+	Body          string        `json:"body"`
+	Host          string        `json:"host"`
+	RemoteAddr    string        `json:"remote_addr"`
+	PostForm      url.Values    `json:"post_form"`
+	Form          url.Values    `json:"form"`
+	JSON          interface{}   `json:"json"`
+	BinId         string        `json:"bin_id"`
+	UserAgentInfo UserAgentInfo `json:"user_agent_info"`
 }
 
 func (request *HttpRequest) ISO8601Time() string {
 	return request.Time.Format(time.RFC3339)
+}
+
+func UrlEncoded(str string) (string, error) {
+	u, err := url.Parse(str)
+	if err != nil {
+		return "", err
+	}
+	return u.String(), nil
+}
+
+func GetUserAgentInfo(r *http.Request) (UserAgentInfo, error) {
+	var userAgentInfo UserAgentInfo
+	userAgent := r.Header["User-Agent"]
+	if userAgent != nil {
+		userAgent, err := UrlEncoded(userAgent[0])
+		if err != nil {
+			return userAgentInfo, err
+		}
+
+		lookupUrl := fmt.Sprintf("http://www.useragentstring.com/?uas=%s&getJSON=all", userAgent)
+		res, err := http.Get(lookupUrl)
+		if err != nil {
+			return userAgentInfo, err
+		}
+
+		defer res.Body.Close()
+
+		decoder := json.NewDecoder(res.Body)
+		err = decoder.Decode(&userAgentInfo)
+		if err != nil {
+			return userAgentInfo, err
+		}
+	}
+	return userAgentInfo, nil
 }
 
 func startLoggingHttpServer(port int, writers ...HttpRequestWriter) {
@@ -86,19 +132,22 @@ func ParseHttpRequest(r *http.Request, binId string) HttpRequest {
 	fullUrl.Scheme = "http" // TODO find a solution
 	fullUrl.RawQuery = r.URL.Query().Encode()
 
+	userAgentInfo, _ := GetUserAgentInfo(r)
+
 	return HttpRequest{
-		Url:        r.URL.Path,
-		FullUrl:    fullUrl.String(),
-		Method:     r.Method,
-		Host:       r.Host,
-		Time:       time.Now(),
-		Headers:    r.Header,
-		Body:       string(body),
-		RemoteAddr: r.RemoteAddr,
-		PostForm:   r.PostForm,
-		Form:       r.Form,
-		JSON:       json_content,
-		BinId:      binId,
+		Url:           r.URL.Path,
+		FullUrl:       fullUrl.String(),
+		Method:        r.Method,
+		Host:          r.Host,
+		Time:          time.Now(),
+		Headers:       r.Header,
+		Body:          string(body),
+		RemoteAddr:    r.RemoteAddr,
+		PostForm:      r.PostForm,
+		Form:          r.Form,
+		JSON:          json_content,
+		BinId:         binId,
+		UserAgentInfo: userAgentInfo,
 	}
 }
 
