@@ -40,11 +40,15 @@ type AuthenticatedProxyHandler struct {
 	Users *UsersMap
 }
 
+func Write401(w http.ResponseWriter) {
+	w.Header().Set("WWW-Authenticate", "Basic realm=\"requestbin\"")
+	http.Error(w, "authorization failed", http.StatusUnauthorized)
+}
+
 func (p AuthenticatedProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	user, pass, ok := r.BasicAuth()
 	if !ok {
-		w.Header().Set("WWW-Authenticate", "Basic realm=\"myRealm\"")
-		http.Error(w, "authorization failed", http.StatusUnauthorized)
+		Write401(w)
 		return
 	}
 	hashedPass := fmt.Sprintf("%x", md5.Sum([]byte(pass)))
@@ -52,7 +56,7 @@ func (p AuthenticatedProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Requ
 		fmt.Println(r.Host)
 		p.Proxy.ServeHTTP(w, r)
 	} else {
-		w.WriteHeader(http.StatusForbidden)
+		Write401(w)
 		return
 	}
 
