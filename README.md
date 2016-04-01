@@ -15,9 +15,9 @@ This is a debugging tool to view HTTP requests made by a client.
 
 ## Basic usage
 
-Assuming your server is at http://example.com
+Assuming your server is at http://example.com:8080
 
-Any requests to http://example.com/_ will be logged and stored with the following info
+Any requests to http://example.com:8080/ will be logged and stored with the following info
 * Url path
 * Full url
 * HTTP Method
@@ -26,7 +26,7 @@ Any requests to http://example.com/_ will be logged and stored with the followin
 * Raw Body
 
 The first folder in the path (the bin id) is used to group requests together.
-All requests to http://example.com/_/abc will be visible at http://example.com/abc.
+All requests to http://example.com:8080/abc will be visible at http://example.com:8081/abc.
 
 Bins don't need to pre-exist, just use a new one if you want.
 Requests by default expire after 24h.
@@ -65,20 +65,20 @@ The following file types are currently supported
 **Example**
 
 ```
-$ curl http://example.com/_/foo/playlist.m3u
+$ curl http://example.com:8080/foo/playlist.m3u
 #EXTM3U
-http://example.com/_/foo/playlist.mp3
+http://example.com:8080/foo/playlist.mp3
 ```
 
 ## API
 
 You can use the following endpoints to retrieve info in `json`
 
-* `http://example.com/api/bins` To list all the bins
-* `http://example.com/api/bins/<binId>` To list the requests for that bin
+* `http://example.com:8081/api/bins` To list all the bins
+* `http://example.com:8081/api/bins/<binId>` To list the requests for that bin
 
 ```
-$ http http://example.com/api/bins
+$ http http://example.com:8081/api/bins
 HTTP/1.1 200 OK
 Content-Length: 96
 Content-Type: application/json; charset=UTF-8
@@ -91,7 +91,7 @@ Date: Sun, 27 Mar 2016 01:48:51 GMT
 ```
 
 ```
-$ http http://example.com/api/bins/foo
+$ http http://example.com:8081/api/bins/foo
 HTTP/1.1 200 OK
 Content-Length: 654
 Content-Type: application/json; charset=UTF-8
@@ -147,21 +147,30 @@ Date: Sun, 27 Mar 2016 01:49:03 GMT
 
 # How to setup
 
-The tool is meant to be run inside docker containers (one for the HTTP endpoint, one for redis).
+The tool is meant to be run inside docker containers
+
+* redis
+* elasticsearch
+* kibana
+* go server (8080 logging, 8081 api/ui, 8082 proxy to kibana with basic auth)
 You can either build your own image or pull from the docker hub, see below.
 
 ## With Docker
 
 ## Use pre-built image
 
-Just run
+Create a `passwd` file for the passwords to access Kibana.
+Format is
+`username:md5(passwd)` (NOT htpasswd, too much hassle to parse).
+
+Then run
 
 ```
 docker-compose up
 ```
 
 You only need the `docker-compose.yml` file, no need to checkout the full repo.
-By default the container will listen on port `8080`, you can change it in `docker-compose.yml`.
+By default the container will listen on port `8080` and increment for the other services, you can change it in `docker-compose.yml`.
 
 ### Build your own image
 
