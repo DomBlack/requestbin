@@ -21,7 +21,7 @@ func setupRedis(config string) redis.Conn {
 func setupElasticsearch(config string) *elastic.Client {
 	elasticsearchClient, err := elastic.NewClient(
 		elastic.SetURL("http://"+config),
-		elastic.SetHealthcheckTimeout(15*time.Second),
+		elastic.SetHealthcheckTimeoutStartup(30*time.Second),
 	)
 	if err != nil {
 		// Handle error
