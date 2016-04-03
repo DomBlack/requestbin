@@ -253,13 +253,18 @@ func LogHandler(writers ...HttpRequestWriter) func(http.ResponseWriter, *http.Re
 		extension := splitPath[len(splitPath)-1]
 
 		staticFiles := map[string]bool{
-			"jpg": true,
-			"png": true,
-			"bmp": true,
-			"gif": true,
-			"css": true,
-			"mp3": true,
-			"xml": true,
+			"avi":  true,
+			"bmp":  true,
+			"css":  true,
+			"flv":  true,
+			"gif":  true,
+			"jpg":  true,
+			"mp3":  true,
+			"mp4":  true,
+			"png":  true,
+			"webm": true,
+			"wmv":  true,
+			"xml":  true,
 		}
 
 		if staticFiles[extension] {
