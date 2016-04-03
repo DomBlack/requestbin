@@ -67,38 +67,34 @@ type ElasticsearchRequestWriter struct {
 	GeoIPDB *geoip2.Reader
 }
 
-func (w ElasticsearchRequestWriter) WriteJSONRequest(requestType string, jsonRequest string) error {
+func (w ElasticsearchRequestWriter) WriteJSONRequest(requestType string, request interface{}) error {
 	_, err := w.client.Index().
 		Index("requestbin").
 		Type(requestType).
-		BodyJson(jsonRequest).
+		BodyJson(request).
 		Id(uuid.NewV4().String()).
 		Do()
+	if err != nil {
+		fmt.Println("Failed to save to ElasticSearch")
+		fmt.Println(err)
+	}
 	return err
 }
 
 func (w ElasticsearchRequestWriter) WriteTcpRequest(request TcpRequest) error {
-	geoIP, err := RemoteAddrToGeoIP(w.GeoIPDB, request.RemoteAddr)
-	if err == nil {
-		request.GeoIP = *geoIP
-	}
-
-	jsonRequest, err := json.Marshal(request)
-	if err != nil {
-		return err
-	}
-	return w.WriteJSONRequest("tcp", string(jsonRequest))
+	lat, lon, _ := RemoteAddrToGeoIP(w.GeoIPDB, request.RemoteAddr)
+	record := struct {
+		Request  interface{}      `json:"request"`
+		Location elastic.GeoPoint `json:"location"`
+	}{Request: request, Location: *elastic.GeoPointFromLatLon(lat, lon)}
+	return w.WriteJSONRequest("tcp", record)
 }
 
 func (w ElasticsearchRequestWriter) WriteHttpRequest(request HttpRequest) error {
-	geoIP, err := RemoteAddrToGeoIP(w.GeoIPDB, request.RemoteAddr)
-	if err == nil {
-		request.GeoIP = *geoIP
-	}
-
-	jsonRequest, err := json.Marshal(request)
-	if err != nil {
-		return err
-	}
-	return w.WriteJSONRequest("http", string(jsonRequest))
+	lat, lon, _ := RemoteAddrToGeoIP(w.GeoIPDB, request.RemoteAddr)
+	record := struct {
+		Request  interface{}      `json:"request"`
+		Location elastic.GeoPoint `json:"location"`
+	}{Request: request, Location: *elastic.GeoPointFromLatLon(lat, lon)}
+	return w.WriteJSONRequest("http", record)
 }

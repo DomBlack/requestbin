@@ -11,21 +11,15 @@ import (
 type Request struct {
 	RemoteAddr string    `json:"remote_addr"`
 	Time       time.Time `json:"time"`
-	GeoIP      GeoIP     `json:"geoip"`
 }
 
-type GeoIP struct {
-	Latitude  float64 `json:"latitude"`
-	Longitude float64 `json:"longitude"`
-}
-
-func RemoteAddrToGeoIP(db *geoip2.Reader, remoteAddr string) (*GeoIP, error) {
+func RemoteAddrToGeoIP(db *geoip2.Reader, remoteAddr string) (float64, float64, error) {
 	parts := strings.SplitN(remoteAddr, ":", 2)
 	ip := net.ParseIP(parts[0])
 	record, err := db.City(ip)
 	if err != nil {
-		return nil, err
+		return 0, 0, err
 	}
 
-	return &GeoIP{Latitude: record.Location.Latitude, Longitude: record.Location.Longitude}, nil
+	return record.Location.Latitude, record.Location.Longitude, nil
 }

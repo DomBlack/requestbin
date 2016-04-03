@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"strconv"
 	"time"
@@ -19,13 +20,12 @@ func setupRedis(config string) redis.Conn {
 	return redisClient
 }
 
-func setupElasticsearch(config string) *elastic.Client {
+func setupElasticsearch(root string, host string) *elastic.Client {
 	elasticsearchClient, err := elastic.NewClient(
-		elastic.SetURL("http://"+config),
+		elastic.SetURL("http://"+host),
 		elastic.SetHealthcheckTimeoutStartup(30*time.Second),
 	)
 	if err != nil {
-		// Handle error
 		panic(err)
 	}
 	exists, err := elasticsearchClient.IndexExists("requestbin").Do()
@@ -33,9 +33,16 @@ func setupElasticsearch(config string) *elastic.Client {
 		panic(err)
 	}
 	if !exists {
-		_, err = elasticsearchClient.CreateIndex("requestbin").Do()
+
+		file, err := ioutil.ReadFile(root + "/requestbin.index.config")
 		if err != nil {
-			// Handle error
+			panic(err)
+		}
+		fmt.Println(string(file))
+		_, err = elasticsearchClient.CreateIndex("requestbin").
+			BodyString(string(file)).
+			Do()
+		if err != nil {
 			panic(err)
 		}
 	}
@@ -55,7 +62,7 @@ func main() {
 	}
 	defer db.Close()
 
-	elasticsearchClient := setupElasticsearch(os.Getenv("ELASTICSEARCH"))
+	elasticsearchClient := setupElasticsearch(root, os.Getenv("ELASTICSEARCH"))
 
 	elasticsearchWriter := ElasticsearchRequestWriter{client: elasticsearchClient, GeoIPDB: db}
 
@@ -65,7 +72,7 @@ func main() {
 	}
 
 	redisWriter := RedisHttpRequestWriter{client: redisClient}
-	startLoggingHttpServer(httpPort, redisWriter, elasticsearchWriter)
+	startLoggingHttpServer(httpPort, root+"/static/", redisWriter, elasticsearchWriter)
 	startAdminHttpServer(httpPort+1, root+"/static/", redisClient)
 	startKibanaProxy(httpPort+2, os.Getenv("KIBANA"), root+"/passwd")
 

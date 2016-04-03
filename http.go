@@ -83,10 +83,11 @@ func GetUserAgentInfo(r *http.Request) (UserAgentInfo, error) {
 	return userAgentInfo, nil
 }
 
-func startLoggingHttpServer(port int, writers ...HttpRequestWriter) {
+func startLoggingHttpServer(port int, staticRoot string, writers ...HttpRequestWriter) {
 	fmt.Printf("Starting HTTP logging server on port %d\n", port)
 
 	router := mux.NewRouter().StrictSlash(true)
+	router.PathPrefix("/files").Handler(http.FileServer(http.Dir(staticRoot)))
 	router.HandleFunc("/", LogHandler(writers...))
 	router.HandleFunc("/{binId}", LogHandler(writers...))
 	router.HandleFunc("/{binId}/{param:.*}", LogHandler(writers...))

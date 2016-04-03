@@ -53,7 +53,6 @@ func (p AuthenticatedProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Requ
 	}
 	hashedPass := fmt.Sprintf("%x", md5.Sum([]byte(pass)))
 	if (*p.Users)[user] == hashedPass {
-		fmt.Println(r.Host)
 		p.Proxy.ServeHTTP(w, r)
 	} else {
 		Write401(w)
