@@ -72,7 +72,12 @@ func main() {
 	}
 
 	redisWriter := RedisHttpRequestWriter{client: redisClient}
-	startLoggingHttpServer(httpPort, root+"/static/", redisWriter, elasticsearchWriter)
+	writers := []HttpRequestWriter{
+		redisWriter,
+		elasticsearchWriter,
+	}
+
+	startLoggingHttpServer(httpPort, root+"/static/", writers)
 	startAdminHttpServer(httpPort+1, root+"/static/", redisClient)
 	startKibanaProxy(httpPort+2, os.Getenv("KIBANA"), root+"/passwd")
 

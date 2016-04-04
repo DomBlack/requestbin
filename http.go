@@ -83,14 +83,19 @@ func GetUserAgentInfo(r *http.Request) (UserAgentInfo, error) {
 	return userAgentInfo, nil
 }
 
-func startLoggingHttpServer(port int, staticRoot string, writers ...HttpRequestWriter) {
+func startLoggingHttpServer(port int, staticRoot string, writers []HttpRequestWriter) {
 	fmt.Printf("Starting HTTP logging server on port %d\n", port)
+
+	handlers := []HttpRequestHandler{
+		StaticFileHttpRequestHandler{},
+		DynamicFileHttpRequestHandler{},
+	}
 
 	router := mux.NewRouter().StrictSlash(true)
 	router.PathPrefix("/files").Handler(http.FileServer(http.Dir(staticRoot)))
-	router.HandleFunc("/", LogHandler(writers...))
-	router.HandleFunc("/{binId}", LogHandler(writers...))
-	router.HandleFunc("/{binId}/{param:.*}", LogHandler(writers...))
+	router.HandleFunc("/", LogHandler(handlers, writers))
+	router.HandleFunc("/{binId}", LogHandler(handlers, writers))
+	router.HandleFunc("/{binId}/{param:.*}", LogHandler(handlers, writers))
 	go http.ListenAndServe(fmt.Sprintf(":%d", port), router)
 }
 
@@ -235,15 +240,15 @@ func getTemplate(w http.ResponseWriter, tmpl string) *template.Template {
 	return template.Must(templates, err)
 }
 
-type RequestHandler interface {
+type HttpRequestHandler interface {
 	CanHandle(request *HttpRequest) bool
 	Handle(w http.ResponseWriter, r *http.Request, request *HttpRequest) bool
 }
 
-type StaticFileHandler struct {
+type StaticFileHttpRequestHandler struct {
 }
 
-func (fh StaticFileHandler) CanHandle(request *HttpRequest) bool {
+func (fh StaticFileHttpRequestHandler) CanHandle(request *HttpRequest) bool {
 	staticFiles := map[string]bool{
 		"avi":  true,
 		"bmp":  true,
@@ -264,7 +269,7 @@ func (fh StaticFileHandler) CanHandle(request *HttpRequest) bool {
 	return staticFiles[extension]
 }
 
-func (fh StaticFileHandler) Handle(w http.ResponseWriter, r *http.Request, request *HttpRequest) bool {
+func (fh StaticFileHttpRequestHandler) Handle(w http.ResponseWriter, r *http.Request, request *HttpRequest) bool {
 	if !fh.CanHandle(request) {
 		return false
 	}
@@ -275,9 +280,9 @@ func (fh StaticFileHandler) Handle(w http.ResponseWriter, r *http.Request, reque
 	return true
 }
 
-type DynamicFileHandler struct{}
+type DynamicFileHttpRequestHandler struct{}
 
-func (fh DynamicFileHandler) CanHandle(request *HttpRequest) bool {
+func (fh DynamicFileHttpRequestHandler) CanHandle(request *HttpRequest) bool {
 	splitPath := strings.Split(request.Url, ".")
 	extension := splitPath[len(splitPath)-1]
 
@@ -295,7 +300,7 @@ func (fh DynamicFileHandler) CanHandle(request *HttpRequest) bool {
 	return dynamicFiles[extension]
 }
 
-func (fh DynamicFileHandler) Handle(w http.ResponseWriter, r *http.Request, request *HttpRequest) bool {
+func (fh DynamicFileHttpRequestHandler) Handle(w http.ResponseWriter, r *http.Request, request *HttpRequest) bool {
 	if !fh.CanHandle(request) {
 		return false
 	}
@@ -379,7 +384,7 @@ func (fh DynamicFileHandler) Handle(w http.ResponseWriter, r *http.Request, requ
 	return false
 }
 
-func LogHandler(writers ...HttpRequestWriter) func(http.ResponseWriter, *http.Request) {
+func LogHandler(handlers []HttpRequestHandler, writers []HttpRequestWriter) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		binId, ok := mux.Vars(r)["binId"]
 		if !ok {
@@ -393,10 +398,6 @@ func LogHandler(writers ...HttpRequestWriter) func(http.ResponseWriter, *http.Re
 			}
 		}
 
-		handlers := []RequestHandler{
-			StaticFileHandler{},
-			DynamicFileHandler{},
-		}
 		for _, handler := range handlers {
 			if handler.Handle(w, r, &request) {
 				return
