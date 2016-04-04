@@ -16,6 +16,7 @@ api:
     - ROOT=/app
     - REDIS=redis:6379
     - KIBANA=kibana:5601
+    - HOSTNAME=localhost
   volumes:
     - ./passwd:/app/passwd
 

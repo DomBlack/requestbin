@@ -85,6 +85,7 @@ func startLoggingHttpServer(port int, staticRoot string, writers []HttpRequestWr
 	fmt.Printf("Starting HTTP logging server on port %d\n", port)
 
 	handlers := []HttpRequestHandler{
+		RedirectHttpRequestHandler{},
 		StaticFileHttpRequestHandler{},
 		DynamicFileHttpRequestHandler{},
 	}
