@@ -37,7 +37,6 @@ func clientConns(listener net.Listener) chan net.Conn {
 				continue
 			}
 			i++
-			fmt.Printf("%d: %v <-> %v\n", i, client.LocalAddr(), client.RemoteAddr())
 			client.SetReadDeadline(time.Now().Add(4 * time.Second))
 			ch <- client
 		}
