@@ -19,6 +19,15 @@ func (fh RedirectHttpRequestHandler) Handle(w http.ResponseWriter, r *http.Reque
 
 	redirectType := splitPath[3]
 
+	if redirectType == "self" {
+		trackerUrl := *r.URL
+		trackerUrl.Host = r.Host
+		trackerUrl.Scheme = "http" // TODO find a solution
+		trackerUrl.Path = fmt.Sprintf("/%s/postredirect", splitPath[1])
+		http.Redirect(w, r, trackerUrl.String(), 302)
+		return true
+	}
+
 	redirectMap := map[string]string{
 		"file/passwd":        "file:///etc/passwd",
 		"file/hosts":         "file:///etc/hosts",
