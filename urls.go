@@ -10,6 +10,7 @@ func GetUrls() map[string]string {
 	return map[string]string{
 		"file/passwd": "file:///etc/passwd",
 		"file/hosts":  "file:///etc/hosts",
+		"file/boot":   "file:///c:/boot.ini",
 
 		"sftp": fmt.Sprintf("sftp://%s:%s", os.Getenv("HOSTNAME"), os.Getenv("TCP_PORT")),
 
