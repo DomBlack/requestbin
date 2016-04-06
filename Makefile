@@ -5,4 +5,7 @@ run-docker:
 	docker-compose up
 
 build:
-	docker build -t hamstah/requestbin .
+	docker build --rm -t hamstah/requestbin .
+
+push:
+	docker push hamstah/requestbin
