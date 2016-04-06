@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -24,9 +25,53 @@ func (fh DynamicFileHttpRequestHandler) CanHandle(request *HttpRequest) bool {
 		"pls":     true,
 		"torrent": true,
 		"jspdf":   true,
+		"xml":     true,
 	}
 
 	return dynamicFiles[extension]
+}
+
+func GenerateUrlWithExtension(r *http.Request, extension string) url.URL {
+	trackerUrl := *r.URL
+	trackerUrl.Host = r.Host
+	trackerUrl.Scheme = "http" // TODO find a solution
+
+	splitPath := strings.Split(r.URL.Path, ".")
+	basePath := strings.Join(splitPath[:len(splitPath)-1], ".")
+	trackerUrl.Path = basePath + "." + extension
+	return trackerUrl
+}
+
+func HandleXML(w http.ResponseWriter, r *http.Request, request *HttpRequest) bool {
+
+	splitPath := strings.Split(request.Url, "/")
+	if len(splitPath) < 3 {
+		return false
+	}
+
+	filename := splitPath[len(splitPath)-1]
+
+	source := os.Getenv("ROOT") + "/documents/xml/" + filename
+	if _, err := os.Stat(source); err != nil {
+		return false
+	}
+
+	// X/bin/<path>/filename
+	targetUrl := GenerateUrlWithExtension(r, "txt")
+	target := targetUrl.String()
+
+	if len(splitPath) >= 4 {
+		//  /bin/<path>/filename where path might contain /
+		urlType := strings.Join(splitPath[2:len(splitPath)-1], "/")
+		newTarget := GetUrls()[urlType]
+
+		if newTarget != "" {
+			target = newTarget
+		}
+	}
+
+	RenderDocumentTemplate(w, source, target)
+	return true
 }
 
 func (fh DynamicFileHttpRequestHandler) Handle(w http.ResponseWriter, r *http.Request, request *HttpRequest) bool {
@@ -40,6 +85,10 @@ func (fh DynamicFileHttpRequestHandler) Handle(w http.ResponseWriter, r *http.Re
 	trackerUrl := *r.URL
 	trackerUrl.Host = r.Host
 	trackerUrl.Scheme = "http" // TODO find a solution
+
+	if extension == "xml" {
+		return HandleXML(w, r, request)
+	}
 
 	if extension == "odt" {
 		trackerUrl.Path = basePath + ".jpg"
