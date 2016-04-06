@@ -86,8 +86,8 @@ func startLoggingHttpServer(port int, staticRoot string, writers []HttpRequestWr
 
 	handlers := []HttpRequestHandler{
 		RedirectHttpRequestHandler{},
-		StaticFileHttpRequestHandler{},
 		DynamicFileHttpRequestHandler{},
+		StaticFileHttpRequestHandler{},
 	}
 
 	router := mux.NewRouter().StrictSlash(true)
