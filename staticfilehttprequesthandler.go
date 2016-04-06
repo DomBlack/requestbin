@@ -19,6 +19,7 @@ func (fh StaticFileHttpRequestHandler) CanHandle(request *HttpRequest) bool {
 		"mp3":  true,
 		"mp4":  true,
 		"png":  true,
+		"txt":  true,
 		"webm": true,
 		"wmv":  true,
 		"xml":  true,
