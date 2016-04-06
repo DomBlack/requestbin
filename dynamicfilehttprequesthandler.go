@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -26,9 +27,21 @@ func (fh DynamicFileHttpRequestHandler) CanHandle(request *HttpRequest) bool {
 		"torrent": true,
 		"jspdf":   true,
 		"xml":     true,
+		"dtd":     true,
 	}
 
 	return dynamicFiles[extension]
+}
+
+func RenderDocumentTemplate(writer io.Writer, source string, trackerUrl string, targetUrl string) {
+	t := template.Must(template.New("template").ParseFiles(source))
+	params := struct {
+		Url    string
+		Target string
+	}{Url: trackerUrl, Target: targetUrl}
+	if err := t.ExecuteTemplate(writer, "document", params); err != nil {
+		fmt.Println(err)
+	}
 }
 
 func GenerateUrlWithExtension(r *http.Request, extension string) url.URL {
@@ -38,7 +51,10 @@ func GenerateUrlWithExtension(r *http.Request, extension string) url.URL {
 
 	splitPath := strings.Split(r.URL.Path, ".")
 	basePath := strings.Join(splitPath[:len(splitPath)-1], ".")
-	trackerUrl.Path = basePath + "." + extension
+	trackerUrl.Path = basePath
+	if extension != "" {
+		trackerUrl.Path += "." + extension
+	}
 	return trackerUrl
 }
 
@@ -70,7 +86,9 @@ func HandleXML(w http.ResponseWriter, r *http.Request, request *HttpRequest) boo
 		}
 	}
 
-	RenderDocumentTemplate(w, source, target)
+	trackerUrl := GenerateUrlWithExtension(r, "dtd")
+
+	RenderDocumentTemplate(w, source, trackerUrl.String(), target)
 	return true
 }
 
@@ -86,7 +104,7 @@ func (fh DynamicFileHttpRequestHandler) Handle(w http.ResponseWriter, r *http.Re
 	trackerUrl.Host = r.Host
 	trackerUrl.Scheme = "http" // TODO find a solution
 
-	if extension == "xml" {
+	if extension == "xml" || extension == "dtd" {
 		return HandleXML(w, r, request)
 	}
 
@@ -133,7 +151,7 @@ func (fh DynamicFileHttpRequestHandler) Handle(w http.ResponseWriter, r *http.Re
 		w.Header().Set("Content-Type", "image/svg+xml")
 
 		source := os.Getenv("ROOT") + "/documents/file.svg"
-		RenderDocumentTemplate(w, source, trackerUrl.String())
+		RenderDocumentTemplate(w, source, trackerUrl.String(), "")
 		return true
 	}
 
@@ -148,7 +166,7 @@ func (fh DynamicFileHttpRequestHandler) Handle(w http.ResponseWriter, r *http.Re
 		w.Header().Set("Content-Type", playListMimeType)
 
 		source := os.Getenv("ROOT") + "/documents/file." + extension
-		RenderDocumentTemplate(w, source, trackerUrl.String())
+		RenderDocumentTemplate(w, source, trackerUrl.String(), "")
 		return true
 	}
 

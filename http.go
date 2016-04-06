@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -211,14 +210,6 @@ func BinHandler(redisClient redis.Conn) func(http.ResponseWriter, *http.Request)
 	}
 }
 
-func RenderDocumentTemplate(writer io.Writer, source string, trackerUrl string) {
-	t := template.Must(template.New("template").ParseFiles(source))
-	params := struct{ Url string }{Url: trackerUrl}
-	if err := t.ExecuteTemplate(writer, "document", params); err != nil {
-		fmt.Println(err)
-	}
-}
-
 func getTemplate(w http.ResponseWriter, tmpl string) *template.Template {
 	funcMap := template.FuncMap{
 		"lookup_addr": func(addr string) []string {
@@ -258,8 +249,5 @@ func LogHandler(handlers []HttpRequestHandler, writers []HttpRequestWriter) func
 				return
 			}
 		}
-
-		json_response(w, request)
-
 	}
 }
