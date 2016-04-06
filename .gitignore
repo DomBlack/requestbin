@@ -1,4 +1,6 @@
-./files/
+files/*
 gin-bin
 passwd
 data/
+*.mmdb
+docker-compose.override.yml

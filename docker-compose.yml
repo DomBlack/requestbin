@@ -11,7 +11,7 @@ api:
     - 9999:9999
   environment:
     - PORT=8080
-    - TCP_PORT=:9999
+    - TCP_PORT=:9900
     - ELASTICSEARCH=elasticsearch:9200
     - ROOT=/app
     - REDIS=redis:6379
@@ -30,12 +30,8 @@ kibana:
   image: kibana
   links:
     - elasticsearch
-  # ports:
-  #   - 5601:5601
 
 elasticsearch:
   image: elasticsearch
   volumes:
     - ./data:/usr/share/elasticsearch/data
-  # ports:
-  #   - 9200:9200
