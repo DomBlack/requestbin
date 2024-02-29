@@ -15,9 +15,9 @@ This is a debugging tool to view HTTP requests made by a client.
 
 ## Basic usage
 
-Assuming your server is at http://example.com:8080
+Assuming your server is at http://example.com:18080
 
-Any requests to http://example.com:8080/ will be logged and stored with the following info
+Any requests to http://example.com:18080/ will be logged and stored with the following info
 * Url path
 * Full url
 * HTTP Method
@@ -26,7 +26,7 @@ Any requests to http://example.com:8080/ will be logged and stored with the foll
 * Raw Body
 
 The first folder in the path (the bin id) is used to group requests together.
-All requests to http://example.com:8080/abc will be visible at http://example.com:8081/abc.
+All requests to http://example.com:18080/abc will be visible at http://example.com:18081/abc.
 
 Bins don't need to pre-exist, just use a new one if you want.
 Requests by default expire after 24h.
@@ -65,9 +65,9 @@ The following file types are currently supported
 **Example**
 
 ```
-$ curl http://example.com:8080/foo/playlist.m3u
+$ curl http://example.com:18080/foo/playlist.m3u
 #EXTM3U
-http://example.com:8080/foo/playlist.mp3
+http://example.com:18080/foo/playlist.mp3
 ```
 
 ## API
@@ -78,7 +78,7 @@ You can use the following endpoints to retrieve info in `json`
 * `http://example.com:8081/api/bins/<binId>` To list the requests for that bin
 
 ```
-$ http http://example.com:8081/api/bins
+$ http http://example.com:18081/api/bins
 HTTP/1.1 200 OK
 Content-Length: 96
 Content-Type: application/json; charset=UTF-8
@@ -91,7 +91,7 @@ Date: Sun, 27 Mar 2016 01:48:51 GMT
 ```
 
 ```
-$ http http://example.com:8081/api/bins/foo
+$ http http://example.com:18081/api/bins/foo
 HTTP/1.1 200 OK
 Content-Length: 654
 Content-Type: application/json; charset=UTF-8
@@ -152,7 +152,7 @@ The tool is meant to be run inside docker containers
 * redis
 * elasticsearch
 * kibana
-* go server (8080 logging, 8081 api/ui, 8082 proxy to kibana with basic auth)
+* go server (18080 logging, 18081 api/ui, 18082 proxy to kibana with basic auth)
 You can either build your own image or pull from the docker hub, see below.
 
 ## With Docker
@@ -166,54 +166,6 @@ Format is
 Then run
 
 ```
+docker-compose build
 docker-compose up
 ```
-
-You only need the `docker-compose.yml` file, no need to checkout the full repo.
-By default the container will listen on port `8080` and increment for the other services, you can change it in `docker-compose.yml`.
-
-### Build your own image
-
-```
-make build
-make run-docker
-```
-
-You can also use
-
-```
-make run-local
-```
-
-To run it without docker.
-You will need to update the `Makefile` to make it point to your redis server if not running locally.
-
-You need to install the dependencies manually
-
-```
-go get "github.com/garyburd/redigo/redis"
-go get "github.com/gorilla/mux"
-go get "github.com/jackpal/bencode-go"
-go get github.com/codegangsta/gin
-```
-
-# References
-
-* [Dropbox Opening my docs? (archived)](https://archive.is/GCWoO)
-* BSides Toronto 2014 talk "Honeydocs and Offensive Countermeasures" by Roy Firestein
-    * [DocPing](https://docping.me/)
-	* [Video](https://www.youtube.com/watch?v=a-b6uyDL1Rg)
-	* [Slides](http://sector.ca/Portals/17/Presentations14/Roy%20Firestein%20-%20SecTor%202014.pdf)
-* Defcon 23 talk "Bugged Files, Is your Document Telling on You?" by Daniel Crowley and Damon Smith
-    * [Video](https://www.youtube.com/watch?v=M3vP-wughPo)
-	* [Slides](https://media.defcon.org/DEF%20CON%2023/DEF%20CON%2023%20presentations/DEFCON-23-Daniel-Crowley-Damon-Smith-Bugged-Files.pdf)
-
-# Related tools
-
-* The original request bin, I need a better name
-    * [RequestBin](http://requestb.in/)
-	* [Github](https://github.com/Runscope/requestbin)
-* HttpBin
-    * [httpbin](http://httpbin.org)
-	* [Github](https://github.com/Runscope/httpbin)
-http://dream.hamstah.com:8080/_/demo/test.jpg

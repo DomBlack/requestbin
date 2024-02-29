@@ -6,6 +6,13 @@
         Welcome
       </h1>
     </div>
+    <div class="row">
+      <ul>
+        {{ range .Bins }}
+          <li><a href="/{{ . }}">{{ . }}</a></li>
+        {{ end }}
+      </ul>
+    </div>
   </div>
 </div>
 {{end}}

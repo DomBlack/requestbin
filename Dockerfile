@@ -1,20 +1,22 @@
-FROM golang
+FROM golang as builder
 
-RUN go get "github.com/garyburd/redigo/redis"
-RUN go get "github.com/gorilla/mux"
-RUN go get "github.com/jackpal/bencode-go"
-RUN go get "github.com/satori/go.uuid"
-RUN go get "gopkg.in/olivere/elastic.v3"
-RUN go get "github.com/oschwald/geoip2-golang"
+RUN mkdir -p /workspace
+ADD go.mod /workspace
+ADD go.sum /workspace
+ADD cmd /workspace/cmd
+WORKDIR /workspace
+RUN go build -o /workspace/requestbin ./cmd/requestbin
 
-ENTRYPOINT /go/bin/requestbin
+FROM gcr.io/distroless/base-debian12
+
 EXPOSE 8080
+EXPOSE 8081
 
 ADD ./templates /app/templates
 ADD ./static /app/static
 ADD ./documents /app/documents
 ADD ./GeoLite2-City.mmdb /app/GeoLite2-City.mmdb
 ADD ./requestbin.index.config /app/requestbin.index.config
+COPY --from=builder /workspace/requestbin /requestbin
 
-ADD . /go/src/github.com/hamstah/requestbin
-RUN go install github.com/hamstah/requestbin
+CMD ["/requestbin"]

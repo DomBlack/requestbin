@@ -1,37 +1,71 @@
-api:
-  image: hamstah/requestbin
-  links:
-    - redis
-    - elasticsearch
-    - kibana
-  ports:
-    - 8080:8080
-    - 8081:8081
-    - 8082:8082
-    - 9999:9999
-  environment:
-    - PORT=8080
-    - TCP_PORT=:9900
-    - ELASTICSEARCH=elasticsearch:9200
-    - ROOT=/app
-    - REDIS=redis:6379
-    - KIBANA=kibana:5601
-    - HOSTNAME=localhost
-  volumes:
-    - ./passwd:/app/passwd
+version: '3.8'
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: requestbin
+    depends_on:
+      - redis
+      - elasticsearch
+      - kibana
+    links:
+      - redis
+      - elasticsearch
+      - kibana
+    ports:
+      - "18080:8080"
+      - "18081:8081"
+      - "18082:8082"
+      - "19999:9999"
+    environment:
+      - PORT=8080
+      - TCP_PORT=9900
+      - ELASTICSEARCH=elasticsearch:9200
+      - ROOT=/app
+      - REDIS=redis:6379
+      - KIBANA=kibana:5601
+      - HOSTNAME=localhost
+    volumes:
+      - ./passwd:/app/passwd
 
-redis:
-  image: redis
-  volumes:
-    - ./data:/data
-  command: redis-server --appendonly yes
+  redis:
+    image: redis
+    container_name: requestbin-redis
+    volumes:
+      - ./data/redis:/data
+    command: redis-server --appendonly yes
+    logging:
+      driver: none
 
-kibana:
-  image: kibana
-  links:
-    - elasticsearch
+  kibana:
+    image: kibana:7.17.18
+    container_name: requestbin-kibana
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    ports:
+      - 5601:5601
+    depends_on:
+      - elasticsearch
+    logging:
+      driver: none
 
-elasticsearch:
-  image: elasticsearch
-  volumes:
-    - ./data:/usr/share/elasticsearch/data
+  elasticsearch:
+    image: elasticsearch:7.17.18
+    container_name: requestbin-elasticsearch
+    environment:
+      - xpack.security.enabled=false
+      - discovery.type=single-node
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    cap_add:
+      - IPC_LOCK
+    volumes:
+      - ./data/elasticsearch:/usr/share/elasticsearch/data
+    logging:
+      driver: none
